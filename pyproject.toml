@@ -1,16 +1,40 @@
+[project]
+name = "lzallright"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "László Vaskó", email = "1771332+vlaci@users.noreply.github.com"},
+]
+dependencies = []
+requires-python = ">=3.8"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.urls]
+repository = "https://github.com/vlaci/lzallright"
+
 [build-system]
 requires = ["maturin>=0.14,<0.15"]
 build-backend = "maturin"
 
-[project]
-name = "lzokay"
-requires-python = ">=3.7"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+[tool.maturin]
+features = [
+  "pyo3/extension-module",  # This is an extension module
+  "pyo3/abi3-py38"          # https://docs.python.org/3/c-api/stable.html
 ]
 
+[tool.pdm.scripts]
+venv = "pdm sync -d"
+mypy = "mypy ."
+pytest = "python -m pytest tests"
+clippy = "cargo clippy --all-targets -- --deny warnings"
+test = "cargo test"
+all = { composite = ["clippy", "test", "venv", "mypy", "pytest"] }
 
-[tool.maturin]
-features = ["pyo3/extension-module"]
+[tool.pdm.dev-dependencies]
+dev = [
+    "black      ~= 23.3.0",
+    "pytest     ~= 7.0.0",
+    "ruff       ~= 0.0.264",
+    "mypy       ~= 1.2",
+]
