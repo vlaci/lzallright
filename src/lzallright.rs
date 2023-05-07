@@ -54,7 +54,7 @@ impl LZOCompressor {
         let mut result = lzokay_sys::EResult::Error;
         let mut compressed_size = 0usize;
         let dst = PyByteArray::new_with(py, max_size, |dst| {
-            result = unsafe {
+            result = py.allow_threads(|| unsafe {
                 lzokay_sys::compress(
                     data.as_ptr(),
                     data.len(),
@@ -63,7 +63,7 @@ impl LZOCompressor {
                     &mut compressed_size,
                     self.dict.pin_mut(),
                 )
-            };
+            });
             Ok(())
         })?;
         dst.resize(compressed_size)?;
@@ -82,15 +82,16 @@ impl LZOCompressor {
         let mut result;
         let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
         loop {
-            result = unsafe {
+            let dst_bytes = unsafe { dst.as_bytes_mut() };
+            result = py.allow_threads(|| unsafe {
                 lzokay_sys::decompress(
                     data.as_ptr(),
                     data.len(),
-                    dst.as_bytes_mut().as_mut_ptr(),
-                    dst.len(),
+                    dst_bytes.as_mut_ptr(),
+                    dst_bytes.len(),
                     &mut decompressed_size,
                 )
-            };
+            });
             if result == lzokay_sys::EResult::OutputOverrun {
                 dst.resize(2 * size)?;
                 continue;

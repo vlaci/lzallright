@@ -47,5 +47,6 @@ mod lzokay {
         fn new_dict() -> UniquePtr<DictBase>;
     }
 }
-
 pub use lzokay::*;
+
+unsafe impl Send for DictBase {}
