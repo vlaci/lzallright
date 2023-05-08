@@ -4,7 +4,20 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+
 build = "build.rs"
+
+include = [
+    "/build.rs",
+    "/lzokay/*.cpp",
+    "/lzokay/*.hpp",
+    "/src",
+    "wrapper.hpp",
+]
+
 
 [dependencies]
 cxx = "1.0"

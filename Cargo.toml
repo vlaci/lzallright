@@ -4,6 +4,23 @@ authors.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+include = [
+    "/pyproject.toml",
+    "/pdm.lock",
+    "/README.md",
+    "/LICENSE",
+    "/benches",
+    "/rust-toolchain.toml",
+    "/src",
+    "/lzallright.pyi",
+    "/tests/*.py",
+    "!__pycache__",
+    "!*.so",
+]
 
 [lib]
 crate-type = [
@@ -32,3 +49,6 @@ version = "0.1.0"
 authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
 license = "MIT"
 edition = "2021"
+homepage = "https://github.com/pydantic/pydantic-core"
+repository = "https://github.com/pydantic/pydantic-core.git"
+readme = "README.md"

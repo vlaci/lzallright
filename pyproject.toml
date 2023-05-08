@@ -1,14 +1,16 @@
 [project]
 name = "lzallright"
-version = "0.1.0"
-description = ""
 authors = [
     {name = "László Vaskó", email = "1771332+vlaci@users.noreply.github.com"},
 ]
 dependencies = []
 requires-python = ">=3.8"
-readme = "README.md"
-license = {file = "LICENSE"}
+dynamic = [
+    'description',
+    'license',
+    'readme',
+    'version'
+]
 
 [project.urls]
 repository = "https://github.com/vlaci/lzallright"
