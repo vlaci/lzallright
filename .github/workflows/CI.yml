@@ -56,17 +56,31 @@ jobs:
 
   Linux:
     runs-on: ubuntu-latest
-    name: "Linux (${{ matrix.target }})"
+    name: "Linux (${{ matrix.target }}.${{ matrix.tag }})"
     strategy:
       matrix:
         include:
           - target: x86_64
+            tag: manylinux2014
             container: quay.io/pypa/manylinux2014_x86_64:latest
           - target: x86
             container: quay.io/pypa/manylinux2014_i686:latest
+            tag: manylinux2014
           - target: aarch64
             container: quay.io/pypa/manylinux2014_aarch64:latest
             cross: aarch64
+            tag: manylinux2014
+          - target: x86_64
+            container: quay.io/pypa/musllinux_1_1_x86_64:latest
+            tag: musllinux_1_1
+            before-script: |
+              ln -snf /usr/bin/g++ /usr/bin/x86_64-linux-gnu-g++
+          - target: aarch64
+            container: quay.io/pypa/musllinux_1_1_aarch64:latest
+            cross: aarch64
+            tag: musllinux_1_1
+            before-script: |
+              ln -snf /usr/bin/g++ /usr/bin/aarch64-linux-gnu-g++
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -82,8 +96,10 @@ jobs:
         with:
           target: ${{ matrix.target }}
           container: ${{ matrix.container }}
+          before-script-linux: ${{ matrix.before-script }}
           args: --release --out dist --find-interpreter
-          sccache: "true"
+          sccache: ${{ matrix.target == 'musllinux_1_1' }}
+          docker-options: -e CARGO_NET_GIT_FETCH_WITH_CLI=true
           manylinux: auto
       - name: Upload wheels
         uses: actions/upload-artifact@v3
