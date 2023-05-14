@@ -132,8 +132,8 @@ summary = "Backported and Experimental Type Hints for Python 3.7+"
 
 [metadata]
 lock_version = "4.2"
-groups = ["default", "dev"]
-content_hash = "sha256:fad88da0e1b20f2e977c3099cfb5f947dd6df40d8580e8fdef66030ec0c7152d"
+groups = ["default", "dev", "test"]
+content_hash = "sha256:5831043725347d2cbc019715329317dce126e168235091d218cdfc10331a339d"
 
 [metadata.files]
 "atomicwrites 1.4.1" = [
