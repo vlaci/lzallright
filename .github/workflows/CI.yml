@@ -54,7 +54,34 @@ jobs:
               --option system ${{ matrix.arch }} \
               --extra-platforms ${{ matrix.arch }}
 
+  Checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: curl -L https://github.com/mozilla/grcov/releases/download/v0.8.18/grcov-x86_64-unknown-linux-gnu.tar.bz2 | tar xjf -
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: pdm-project/setup-pdm@v3
+        name: Setup PDM
+      - run: pdm all
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_PROFILE_DEV_DEBUG: "1"
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+          RUSTDOCFLAGS: "-Cpanic=abort"
+          RUSTC_BOOTSTRAP: "1"
+      - run: |
+          zip -0 ccov.zip $(find . -name "lz*.gc*")
+          ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" -o lcov.info
+      - name: Coveralls upload
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+
   Linux:
+    needs: [Checks]
     runs-on: ubuntu-latest
     name: "Linux (${{ matrix.target }}.${{ matrix.tag }})"
     strategy:
@@ -119,6 +146,7 @@ jobs:
           EOF
 
   Windows:
+    needs: [Checks]
     runs-on: windows-latest
     strategy:
       matrix:
@@ -151,6 +179,7 @@ jobs:
           pdm pytest
 
   MacOS:
+    needs: [Checks]
     runs-on: macos-latest
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.9"
@@ -202,7 +231,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [Nix, Linux, Windows, MacOS, sdist]
+    needs: [Nix, Checks, Linux, Windows, MacOS, sdist]
     steps:
       - uses: actions/download-artifact@v3
         with:
