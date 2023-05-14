@@ -21,6 +21,11 @@ jobs:
         uses: DeterminateSystems/update-flake-lock@v19
         with:
           pr-title: "Update flake.lock" # Title of PR to be created
-          pr-labels: | # Labels to be set on the PR
-            dependencies
-            automated
+
+  update-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update dependencies
+        uses: pdm-project/update-deps-action@main
