@@ -32,8 +32,8 @@ impl From<lzokay_sys::EResult> for EResult {
     }
 }
 
-create_exception!(module, LZOError, pyo3::exceptions::PyException);
-create_exception!(module, InputNotConsumed, LZOError);
+create_exception!(lzallright, LZOError, pyo3::exceptions::PyException);
+create_exception!(lzallright, InputNotConsumed, LZOError);
 
 #[pyclass(unsendable)]
 pub struct LZOCompressor {
