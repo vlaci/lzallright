@@ -115,9 +115,11 @@ impl Default for LZOCompressor {
 }
 
 #[pymodule]
-fn lzallright(_py: Python, m: &PyModule) -> PyResult<()> {
+fn lzallright(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<LZOCompressor>()?;
     m.add_class::<EResult>()?;
+    m.add("LZOError", py.get_type::<LZOError>())?;
+    m.add("InputNotConsumed", py.get_type::<InputNotConsumed>())?;
     Ok(())
 }
 
