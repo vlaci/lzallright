@@ -59,14 +59,14 @@
           # MY_CUSTOM_VAR = "some value";
         };
 
+        rust-toolchain-cov = rust-toolchain.override {
+          extensions = [
+            "llvm-tools-preview"
+          ];
+        };
         craneLibLLvmTools = craneLib.overrideToolchain
-          (rust-toolchain.override {
-            extensions = [
-              "cargo"
-              "llvm-tools"
-              "rustc"
-            ];
-          });
+          rust-toolchain-cov
+        ;
 
         # Build *just* the cargo dependencies, so we can reuse
         # all of that work (e.g. via cachix) when running in CI
@@ -81,6 +81,10 @@
         rustPlatform = makeRustPlatform {
           rustc = rust-toolchain;
           cargo = rust-toolchain;
+        };
+        rustPlatform-cov = makeRustPlatform {
+          rustc = rust-toolchain-cov;
+          cargo = rust-toolchain-cov;
         };
 
         pyFilter = path: _type: builtins.match ".*py$|.*/README.md$|.*/LICENSE" path != null;
@@ -110,10 +114,63 @@
 
               passthru = {
                 tests = {
+                  coverage =
+                    let
+                      lzallright-cov = lzallright.overridePythonAttrs (with pkgs; super: {
+                        pname = "${super.pname}-coverage";
+                        nativeBuildInputs = (with rustPlatform-cov; [
+                          cargoSetupHook
+                          maturinBuildHook
+                          cargo-llvm-cov
+                        ]);
+                        preConfigure = (super.preConfigure or "") + ''
+                          source <(cargo llvm-cov show-env --export-prefix)
+                        '';
+                      });
+                    in
+                    with python3Packages; buildPythonPackage
+                      {
+                        inherit (lzallright) version cargoDeps;
+                        pname = "${lzallright.pname}-tests-coverage";
+                        format = "other";
+
+                        src = lib.cleanSourceWith {
+                          src = ./.;
+                          filter = p: t: (sourceFilter p t) || (testFilter p t) || (assetFilter p t);
+                        };
+
+                        dontBuild = true;
+                        dontInstall = true;
+
+                        preCheck = ''
+                          source <(cargo llvm-cov show-env --export-prefix)
+                          LLVM_COV_FLAGS=$(echo -n $(find ${lzallright-cov} -name "*.so"))
+                          export LLVM_COV_FLAGS
+                        '';
+                        postCheck = ''
+                          rm -r $out
+                          cargo llvm-cov report -vv --ignore-filename-regex cargo-vendor-dir --codecov | \
+                                rustfilt | sed -e "s|/build/source/||g" > $out
+                        '';
+
+                        nativeBuildInputs =
+                          (with rustPlatform; [
+                            cargoSetupHook
+                          ]);
+
+                        nativeCheckInputs = with pkgs; [
+                          rustfilt
+                          rust-toolchain-cov
+                          cargo-llvm-cov
+                          lzallright-cov
+                          pytestCheckHook
+                        ];
+                      };
                   pytest =
                     with python3Packages; buildPythonPackage
                       {
-                        inherit (lzallright) pname version;
+                        inherit (lzallright) version;
+                        pname = "${lzallright.pname}-tests-pytest";
                         format = "other";
 
                         src = lib.cleanSourceWith {
@@ -123,7 +180,6 @@
 
                         dontBuild = true;
                         dontInstall = true;
-                        postUnpack = "find";
 
                         nativeCheckInputs = [
                           lzallright
@@ -166,11 +222,17 @@
         } // lib.optionalAttrs
           (system == "x86_64-linux")
           {
-            # NB: cargo-tarpaulin only supports x86_64 systems
             # Check code coverage (note: this will not upload coverage anywhere)
-            liblzallright-coverage = craneLib.cargoTarpaulin (commonArgs // {
-              inherit cargoArtifacts;
-            });
+            liblzallright-coverage =
+              let
+                cov = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
+                  inherit cargoArtifacts;
+                  cargoLlvmCovExtraArgs = "--ignore-filename-regex /nix/store --codecov --output-path $out";
+                });
+              in
+              with pkgs; runCommandNoCC "process-coverage" { buildInputs = [ rustfilt ]; } ''
+                rustfilt -i ${cov} | sed -e "s|/build/source/||g" > $out
+              '';
 
             # Run tests with cargo-nextest
             # Consider setting `doCheck = false` on `liblzallright` if you do not want
@@ -193,11 +255,11 @@
           # MY_CUSTOM_DEVELOPMENT_VAR = "
 
           # Extra inputs can be added here
-          nativeBuildInputs = with pkgs; [
-            maturin
-            pdm
-            cmake
-          ];
+          nativeBuildInputs = with pkgs;
+            [
+              maturin
+              pdm
+            ];
         };
       });
 }

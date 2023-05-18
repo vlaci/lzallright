@@ -54,30 +54,23 @@ jobs:
               --option system ${{ matrix.arch }} \
               --extra-platforms ${{ matrix.arch }}
 
-  Checks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: curl -L https://github.com/mozilla/grcov/releases/download/v0.8.18/grcov-x86_64-unknown-linux-gnu.tar.bz2 | tar xjf -
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          cache: "false"
-      - id: cache-rust
-        name: cache rust
-        uses: Swatinem/rust-cache@v2
-      - run: rustup component add llvm-tools-preview
-      - run: cargo install rustfilt coverage-prepare
-        if: steps.cache-rust.outputs.cache-hit != 'true'
-      - uses: pdm-project/setup-pdm@v3
-        name: Setup PDM
-      - run: pdm all
-        env:
-          RUSTFLAGS: "-C instrument-coverage"
-      - run: coverage-prepare lcov .venv/lib/python3.*/site-packages/lzallright/*.so
+      - name: Cargo test LLVM coverage
+        if: ${{ matrix.arch == 'x86_64-linux' }}
+        run: nix build .#checks.${{ matrix.arch }}.liblzallright-coverage
       - uses: codecov/codecov-action@v3
+        with:
+          flags: cargo-test
+          files: result
+      - name: Pytest LLVM coverage
+        if: ${{ matrix.arch == 'x86_64-linux' }}
+        run: nix build .#checks.${{ matrix.arch }}.coverage
+      - uses: codecov/codecov-action@v3
+        with:
+          flags: pytest
+          files: result
 
   Linux:
-    needs: [Checks]
+    needs: [Nix]
     runs-on: ubuntu-latest
     name: "Linux (${{ matrix.target }}.${{ matrix.tag }})"
     strategy:
@@ -146,7 +139,7 @@ jobs:
           EOF
 
   Windows:
-    needs: [Checks]
+    needs: [Nix]
     runs-on: windows-latest
     strategy:
       matrix:
@@ -183,7 +176,7 @@ jobs:
           pdm pytest
 
   MacOS:
-    needs: [Checks]
+    needs: [Nix]
     runs-on: macos-latest
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.9"
@@ -239,7 +232,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [Nix, Checks, Linux, Windows, MacOS, sdist]
+    needs: [Nix, Linux, Windows, MacOS, sdist]
     steps:
       - uses: actions/download-artifact@v3
         with:
