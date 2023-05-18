@@ -32,8 +32,8 @@ impl From<lzokay_sys::EResult> for EResult {
     }
 }
 
-create_exception!(module, LZOError, pyo3::exceptions::PyException);
-create_exception!(module, InputNotConsumed, LZOError);
+create_exception!(lzallright, LZOError, pyo3::exceptions::PyException);
+create_exception!(lzallright, InputNotConsumed, LZOError);
 
 #[pyclass(unsendable)]
 pub struct LZOCompressor {
@@ -99,9 +99,15 @@ impl LZOCompressor {
             break;
         }
         dst.resize(decompressed_size)?;
+
+        let rv = unsafe { py.from_owned_ptr::<PyBytes>(PyBytes_FromObject(dst.as_ptr())) };
         match result {
-            lzokay_sys::EResult::Success => {
-                Ok(unsafe { py.from_owned_ptr(PyBytes_FromObject(dst.as_ptr())) })
+            lzokay_sys::EResult::Success => Ok(rv),
+            lzokay_sys::EResult::InputNotConsumed => {
+                Err(InputNotConsumed::new_err::<(_, Py<PyBytes>)>((
+                    EResult::InputNotConsumed,
+                    rv.into(),
+                )))
             }
             e => Err(LZOError::new_err(EResult::from(e))),
         }
@@ -115,14 +121,18 @@ impl Default for LZOCompressor {
 }
 
 #[pymodule]
-fn lzallright(_py: Python, m: &PyModule) -> PyResult<()> {
+fn lzallright(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<LZOCompressor>()?;
     m.add_class::<EResult>()?;
+    m.add("LZOError", py.get_type::<LZOError>())?;
+    m.add("InputNotConsumed", py.get_type::<InputNotConsumed>())?;
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
+    use pyo3::types::PyType;
+
     use super::*;
 
     pub const LOREM: &[u8] = include_bytes!("../benches/lorem.txt");
@@ -138,6 +148,16 @@ mod test {
             let out = LZOCompressor::decompress(py, compressed.as_bytes().into()).unwrap();
 
             assert_eq!(out.as_bytes(), LOREM);
+        });
+    }
+
+    #[test]
+    fn test_decompress_invalid_data() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let err = LZOCompressor::decompress(py, LOREM.into()).unwrap_err();
+            assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
         });
     }
 }

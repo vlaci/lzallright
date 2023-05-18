@@ -2,8 +2,8 @@ from array import array
 from mmap import mmap
 from typing import Union
 
-class LZOError(Exception):
-    pass
+class LZOError(Exception): ...
+class InputNotConsumed(LZOError): ...
 
 class EResult:
     LookbehindOverrun = ...
