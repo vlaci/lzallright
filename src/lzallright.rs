@@ -93,7 +93,7 @@ impl LZOCompressor {
                 )
             });
             if result == lzokay_sys::EResult::OutputOverrun {
-                dst.resize(2 * size)?;
+                dst.resize(2 * dst.len())?;
                 continue;
             }
             break;
@@ -158,6 +158,22 @@ mod test {
         Python::with_gil(|py| {
             let err = LZOCompressor::decompress(py, LOREM.into()).unwrap_err();
             assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
+        });
+    }
+
+    #[test]
+    fn test_big_compression_ratio() {
+        // https://github.com/vlaci/lzallright/issues/12
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let mut comp = LZOCompressor::new();
+            let data = [0u8; 65536];
+            let compressed = comp.compress(py, data[..].into()).unwrap();
+
+            let out = LZOCompressor::decompress(py, compressed.as_bytes().into(), None).unwrap();
+
+            assert_eq!(out.as_bytes(), data);
         });
     }
 }
