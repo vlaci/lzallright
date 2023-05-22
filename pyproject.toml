@@ -14,7 +14,7 @@ dynamic = [
 
 [project.urls]
 Repository = "https://github.com/vlaci/lzallright"
-Changelog = "https://github.com/vlaci/pyperscan/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["maturin>=0.15,<0.16"]
