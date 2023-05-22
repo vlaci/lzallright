@@ -76,8 +76,16 @@ impl LZOCompressor {
     }
 
     #[staticmethod]
-    pub fn decompress<'a>(py: Python<'a>, data: Buffer) -> PyResult<&'a PyBytes> {
-        let size = 2 * data.len();
+    pub fn decompress<'a>(
+        py: Python<'a>,
+        data: Buffer,
+        output_size_hint: Option<usize>,
+    ) -> PyResult<&'a PyBytes> {
+        let size = if let Some(size) = output_size_hint {
+            size
+        } else {
+            2 * data.len()
+        };
         let mut decompressed_size = 0usize;
         let mut result;
         let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
@@ -93,7 +101,7 @@ impl LZOCompressor {
                 )
             });
             if result == lzokay_sys::EResult::OutputOverrun {
-                dst.resize(2 * size)?;
+                dst.resize(2 * dst.len())?;
                 continue;
             }
             break;
@@ -145,7 +153,9 @@ mod test {
             let mut comp = LZOCompressor::new();
             let compressed = comp.compress(py, LOREM.into()).unwrap();
 
-            let out = LZOCompressor::decompress(py, compressed.as_bytes().into()).unwrap();
+            let out =
+                LZOCompressor::decompress(py, compressed.as_bytes().into(), Some(LOREM.len()))
+                    .unwrap();
 
             assert_eq!(out.as_bytes(), LOREM);
         });
@@ -156,8 +166,24 @@ mod test {
         pyo3::prepare_freethreaded_python();
 
         Python::with_gil(|py| {
-            let err = LZOCompressor::decompress(py, LOREM.into()).unwrap_err();
+            let err = LZOCompressor::decompress(py, LOREM.into(), None).unwrap_err();
             assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
+        });
+    }
+
+    #[test]
+    fn test_big_compression_ratio() {
+        // https://github.com/vlaci/lzallright/issues/12
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let mut comp = LZOCompressor::new();
+            let data = [0u8; 65536];
+            let compressed = comp.compress(py, data[..].into()).unwrap();
+
+            let out = LZOCompressor::decompress(py, compressed.as_bytes().into(), None).unwrap();
+
+            assert_eq!(out.as_bytes(), data);
         });
     }
 }
