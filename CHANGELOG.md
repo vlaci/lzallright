@@ -8,6 +8,14 @@ This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.2.1](https://github.com/vlaci/lzallright/tree/v0.2.1) - 2023-05-22
+
+
+### Fixed
+
+- Fixed homepage URL [#16](https://github.com/vlaci/lzallright/issues/16)
+
+
 ## [0.2.0](https://github.com/vlaci/lzallright/tree/v0.2.0) - 2023-05-22
 
 
