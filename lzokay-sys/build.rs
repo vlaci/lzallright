@@ -43,6 +43,15 @@ fn main() {
                 .strip_suffix(&cpp_runtime)
                 .expect("Failed to strip suffix"),
         );
+
+        println!(
+            "cargo:rustc-link-lib=static={}",
+            cpp_runtime
+                .chars()
+                .skip("lib".len())
+                .take(cpp_runtime.len() - "lib.a".len())
+                .collect::<String>()
+        );
     }
 
     #[cfg(target_os = "macos")]
