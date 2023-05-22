@@ -32,7 +32,7 @@ filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
 underlines = ["", "", ""]
 template = "changelog.d/changelog_template.jinja"
-title_format = "## [{version}](https://github.com/vlaci/lzallright/tree/{version}) - {project_date}"
+title_format = "## [{version}](https://github.com/vlaci/lzallright/tree/v{version}) - {project_date}"
 issue_format = "[#{issue}](https://github.com/vlaci/lzallright/issues/{issue})"
 
 [[tool.towncrier.type]]

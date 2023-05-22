@@ -8,7 +8,7 @@ This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
-## [0.2.0](https://github.com/vlaci/lzallright/tree/0.2.0) - 2023-05-22
+## [0.2.0](https://github.com/vlaci/lzallright/tree/v0.2.0) - 2023-05-22
 
 
 ### Added
