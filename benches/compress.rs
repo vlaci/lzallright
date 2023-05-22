@@ -18,7 +18,9 @@ fn bench_decompress(b: &mut Bencher<'_>) {
         let mut comp = LZOCompressor::new();
         let data = comp.compress(py, LOREM.into()).unwrap();
 
-        b.iter(|| LZOCompressor::decompress(py, black_box(data.as_bytes().into())));
+        b.iter(|| {
+            LZOCompressor::decompress(py, black_box(data.as_bytes().into()), Some(LOREM.len()))
+        });
     });
 }
 
@@ -42,9 +44,9 @@ fn bench_decompress_big(b: &mut Bencher<'_>) {
 
     Python::with_gil(|py| {
         let mut comp = LZOCompressor::new();
-        let data = comp.compress(py, data[..].into()).unwrap();
+        let c = comp.compress(py, data[..].into()).unwrap();
 
-        b.iter(|| LZOCompressor::decompress(py, black_box(data.as_bytes().into())));
+        b.iter(|| LZOCompressor::decompress(py, black_box(c.as_bytes().into()), Some(data.len())));
     });
 }
 

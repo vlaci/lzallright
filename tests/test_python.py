@@ -7,11 +7,14 @@ def lorem(request):
     return (request.session.path / "benches/lorem.txt").read_bytes()
 
 
-def test_roundtrip(lorem):
+@pytest.mark.parametrize("size_hint", [None, 100, 128 * 2**10])
+def test_roundtrip(lorem, size_hint):
     c = lzallright.LZOCompressor()
     comp = c.compress(lorem)
 
-    assert lzallright.LZOCompressor.decompress(comp) == lorem
+    assert (
+        lzallright.LZOCompressor.decompress(comp, output_size_hint=size_hint) == lorem
+    )
 
 
 def test_decompress_partial(lorem):
