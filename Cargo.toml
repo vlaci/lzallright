@@ -45,10 +45,10 @@ resolver = "2"
 members = [".", "lzokay-sys"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
 license = "MIT"
 edition = "2021"
-homepage = "https://github.com/pydantic/pydantic-core"
-repository = "https://github.com/pydantic/pydantic-core.git"
+repository = "https://github.com/vlaci/lzallright"
+homepage = "https://github.com/vlaci/lzallright"
 readme = "README.md"
