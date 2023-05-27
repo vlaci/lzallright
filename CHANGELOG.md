@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the changes for the upcoming release can be found in <https://github.com/vlaci/lzallright/tree/main/changelog.d/>.
 
+<!-- --8<-- [start:changelog] -->
 <!-- towncrier release notes start -->
 
 ## [0.2.1](https://github.com/vlaci/lzallright/tree/v0.2.1) - 2023-05-22
