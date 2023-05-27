@@ -5,4 +5,6 @@ A Python 3.8+ binding for [LZ👌](https://github.com/jackoalan/lzokay) library 
 > A minimal, C++14 implementation of the
 > [LZO compression format](http://www.oberhumer.com/opensource/lzo/).
 
+Licensed under the friendly MIT license.
+
 Wheels are built statically without any external dependencies.
