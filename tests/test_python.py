@@ -1,5 +1,6 @@
-import lzallright
 import pytest
+
+import lzallright
 
 
 @pytest.fixture
