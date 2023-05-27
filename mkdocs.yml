@@ -1,0 +1,32 @@
+site_name: LZAllright
+strict: true
+repo_name: vlaci/lzallright
+repo_url: https://github.com/vlaci/lzallright
+site_url: https://vlaci.github.io/lzallright
+
+theme: material
+
+nav:
+  - Home: index.md
+  - API Documentation: api.md
+  - Changelog: changelog.md
+
+watch:
+  - python
+
+plugins:
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [python]
+          options:
+            allow_inspection: false
+            separate_signature: true
+            filters: ["!^_"]
+            members_order: source
+
+markdown_extensions:
+  - pymdownx.snippets
+  - toc:
+      permalink: "#"
