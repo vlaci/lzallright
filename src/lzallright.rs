@@ -10,7 +10,7 @@ use pyo3::{
 use crate::python::Buffer;
 
 #[derive(Debug, PartialEq, Eq)]
-#[pyclass]
+#[pyclass(module = "lzallright.lzallright")]
 pub enum EResult {
     LookbehindOverrun,
     OutputOverrun,
@@ -32,10 +32,14 @@ impl From<lzokay_sys::EResult> for EResult {
     }
 }
 
-create_exception!(lzallright, LZOError, pyo3::exceptions::PyException);
-create_exception!(lzallright, InputNotConsumed, LZOError);
+create_exception!(
+    lzallrighg._lzallright,
+    LZOError,
+    pyo3::exceptions::PyException
+);
+create_exception!(lzallright._lzallright, InputNotConsumed, LZOError);
 
-#[pyclass(unsendable)]
+#[pyclass(unsendable, module = "lzallright._lzallright")]
 pub struct LZOCompressor {
     dict: UniquePtr<lzokay_sys::DictBase>,
 }
@@ -129,7 +133,7 @@ impl Default for LZOCompressor {
 }
 
 #[pymodule]
-fn lzallright(py: Python, m: &PyModule) -> PyResult<()> {
+fn _lzallright(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<LZOCompressor>()?;
     m.add_class::<EResult>()?;
     m.add("LZOError", py.get_type::<LZOError>())?;
