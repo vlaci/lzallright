@@ -112,56 +112,6 @@
 
               passthru = {
                 tests = {
-                  coverage =
-                    let
-                      lzallright-cov = lzallright.overridePythonAttrs (with pkgs; super: {
-                        pname = "${super.pname}-coverage";
-                        nativeBuildInputs = (with rustPlatform-cov; [
-                          cargoSetupHook
-                          maturinBuildHook
-                          cargo-llvm-cov
-                        ]);
-                        preConfigure = (super.preConfigure or "") + ''
-                          source <(cargo llvm-cov show-env --export-prefix)
-                        '';
-                      });
-                    in
-                    with python3Packages; buildPythonPackage
-                      {
-                        inherit (lzallright) version cargoDeps;
-                        pname = "${lzallright.pname}-tests-coverage";
-                        format = "other";
-
-                        src = lib.cleanSourceWith {
-                          src = ./.;
-                          filter = p: t: (sourceFilter p t) || (testFilter p t) || (assetFilter p t);
-                        };
-
-                        dontBuild = true;
-                        dontInstall = true;
-
-                        preCheck = ''
-                          source <(cargo llvm-cov show-env --export-prefix)
-                          LLVM_COV_FLAGS=$(echo -n $(find ${lzallright-cov} -name "*.so"))
-                          export LLVM_COV_FLAGS
-                        '';
-                        postCheck = ''
-                          rm -r $out
-                          cargo llvm-cov report -vv --ignore-filename-regex cargo-vendor-dir --codecov --output-path $out
-                        '';
-
-                        nativeBuildInputs =
-                          (with rustPlatform-cov; [
-                            cargoSetupHook
-                          ]);
-
-                        nativeCheckInputs = with pkgs; [
-                          rust-toolchain-llvm-tools
-                          cargo-llvm-cov
-                          lzallright-cov
-                          pytestCheckHook
-                        ];
-                      };
                   pytest =
                     with python3Packages; buildPythonPackage
                       {
@@ -182,7 +132,60 @@
                           pytestCheckHook
                         ];
                       };
-                };
+                } // lib.optionalAttrs
+                  (system == "x86_64-linux")
+                  {
+                    coverage =
+                      let
+                        lzallright-cov = lzallright.overridePythonAttrs (with pkgs; super: {
+                          pname = "${super.pname}-coverage";
+                          nativeBuildInputs = (with rustPlatform-cov; [
+                            cargoSetupHook
+                            maturinBuildHook
+                            cargo-llvm-cov
+                          ]);
+                          preConfigure = (super.preConfigure or "") + ''
+                            source <(cargo llvm-cov show-env --export-prefix)
+                          '';
+                        });
+                      in
+                      with python3Packages; buildPythonPackage
+                        {
+                          inherit (lzallright) version cargoDeps;
+                          pname = "${lzallright.pname}-tests-coverage";
+                          format = "other";
+
+                          src = lib.cleanSourceWith {
+                            src = ./.;
+                            filter = p: t: (sourceFilter p t) || (testFilter p t) || (assetFilter p t);
+                          };
+
+                          dontBuild = true;
+                          dontInstall = true;
+
+                          preCheck = ''
+                            source <(cargo llvm-cov show-env --export-prefix)
+                            LLVM_COV_FLAGS=$(echo -n $(find ${lzallright-cov} -name "*.so"))
+                            export LLVM_COV_FLAGS
+                          '';
+                          postCheck = ''
+                            rm -r $out
+                            cargo llvm-cov report -vv --ignore-filename-regex cargo-vendor-dir --codecov --output-path $out
+                          '';
+
+                          nativeBuildInputs =
+                            (with rustPlatform-cov; [
+                              cargoSetupHook
+                            ]);
+
+                          nativeCheckInputs = with pkgs; [
+                            rust-toolchain-llvm-tools
+                            cargo-llvm-cov
+                            lzallright-cov
+                            pytestCheckHook
+                          ];
+                        };
+                  };
               };
             });
       in
