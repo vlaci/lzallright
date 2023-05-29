@@ -4,7 +4,29 @@ repo_name: vlaci/lzallright
 repo_url: https://github.com/vlaci/lzallright
 site_url: https://vlaci.github.io/lzallright
 
-theme: material
+theme:
+  name: material
+  font:
+    text: Open Sans
+    code: Fira Code
+  features:
+    - toc.integrate
+    - toc.follow
+    - navigation.instant
+    - navigation.top
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
 
 nav:
   - Home: index.md
@@ -30,3 +52,4 @@ markdown_extensions:
   - pymdownx.snippets
   - toc:
       permalink: "#"
+      toc_depth: 2
