@@ -7,7 +7,10 @@ fn main() {
     CFG.include_prefix = "lzokay-sys";
     let src_dir = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lzokay");
 
-    println!("cargo:rerun-if-changed={}", file!());
+    println!(
+        "cargo:rerun-if-changed={}",
+        src_dir.join("build.rs").to_str().unwrap()
+    );
     println!("cargo:rerun-if-changed={}", src_dir.to_str().unwrap());
 
     #[cfg(target_os = "linux")]

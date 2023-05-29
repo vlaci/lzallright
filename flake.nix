@@ -9,9 +9,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
+    fenix = {
+      url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.rust-analyzer-src.follows = "";
     };
 
     flake-utils.url = "github:numtide/flake-utils";
@@ -22,18 +23,16 @@
     };
   };
 
-  outputs = { self, nixpkgs, crane, rust-overlay, flake-utils, advisory-db, ... }:
+  outputs = { self, nixpkgs, crane, fenix, flake-utils, advisory-db, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ (import rust-overlay) ];
         };
 
         inherit (pkgs) lib makeRustPlatform python3Packages;
 
-        rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-        craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
+        craneLib = crane.lib.${system};
         cppFilter = path: _type: builtins.match ".*(h|c)pp$" path != null;
         assetFilter = path: _type: builtins.match ".*(benches|benches/.*\.txt)$" path != null;
 
@@ -59,14 +58,13 @@
           # MY_CUSTOM_VAR = "some value";
         };
 
-        rust-toolchain-cov = rust-toolchain.override {
-          extensions = [
-            "llvm-tools-preview"
-          ];
-        };
-        craneLibLLvmTools = craneLib.overrideToolchain
-          rust-toolchain-cov
-        ;
+        rust-toolchain = fenix.packages.${system}.complete.toolchain;
+        rust-toolchain-llvm-tools = fenix.packages.${system}.complete.withComponents [
+          "llvm-tools"
+          "cargo"
+          "rustc"
+        ];
+        craneLibLLvmTools = craneLib.overrideToolchain rust-toolchain-llvm-tools;
 
         # Build *just* the cargo dependencies, so we can reuse
         # all of that work (e.g. via cachix) when running in CI
@@ -83,8 +81,8 @@
           cargo = rust-toolchain;
         };
         rustPlatform-cov = makeRustPlatform {
-          rustc = rust-toolchain-cov;
-          cargo = rust-toolchain-cov;
+          rustc = rust-toolchain-llvm-tools;
+          cargo = rust-toolchain-llvm-tools;
         };
 
         pyFilter = path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
@@ -153,12 +151,12 @@
                         '';
 
                         nativeBuildInputs =
-                          (with rustPlatform; [
+                          (with rustPlatform-cov; [
                             cargoSetupHook
                           ]);
 
                         nativeCheckInputs = with pkgs; [
-                          rust-toolchain-cov
+                          rust-toolchain-llvm-tools
                           cargo-llvm-cov
                           lzallright-cov
                           pytestCheckHook
@@ -251,6 +249,7 @@
             [
               maturin
               pdm
+              cargo-msrv
             ];
         };
       });
