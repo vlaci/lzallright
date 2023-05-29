@@ -10,6 +10,19 @@ This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.2.3](https://github.com/vlaci/lzallright/tree/v0.2.3) - 2023-05-29
+
+
+### Added
+
+- Added API documentation [#19](https://github.com/vlaci/lzallright/issues/19)
+
+
+### Fixed
+
+- Actually statically link to C++ runtime on Linux [#25](https://github.com/vlaci/lzallright/issues/25)
+
+
 ## [v0.2.2](https://github.com/vlaci/lzallright/tree/vv0.2.2) - 2023-05-28
 
 No significant changes.
