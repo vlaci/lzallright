@@ -10,7 +10,7 @@ use pyo3::{
 use crate::python::Buffer;
 
 #[derive(Debug, PartialEq, Eq)]
-#[pyclass(module = "lzallright.lzallright")]
+#[pyclass(module = "lzallright._lzallright")]
 pub enum EResult {
     LookbehindOverrun,
     OutputOverrun,
@@ -33,7 +33,7 @@ impl From<lzokay_sys::EResult> for EResult {
 }
 
 create_exception!(
-    lzallrighg._lzallright,
+    lzallright._lzallright,
     LZOError,
     pyo3::exceptions::PyException
 );
