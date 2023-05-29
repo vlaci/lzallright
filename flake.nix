@@ -87,7 +87,7 @@
           cargo = rust-toolchain-cov;
         };
 
-        pyFilter = path: _type: builtins.match ".*pyi?$|.*/README.md$|.*/LICENSE$" path != null;
+        pyFilter = path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
         testFilter = p: t: builtins.match ".*/(pyproject\.toml|tests|tests/.*\.py)$" p != null;
         lzallright = python3Packages.buildPythonPackage
           (commonArgs //
