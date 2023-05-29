@@ -13,6 +13,7 @@ dynamic = [
 ]
 
 [project.urls]
+Homepage = "https://vlaci.github.io/lzallright"
 Repository = "https://github.com/vlaci/lzallright"
 Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
 
