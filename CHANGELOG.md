@@ -23,7 +23,7 @@ This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the chang
 - Actually statically link to C++ runtime on Linux [#25](https://github.com/vlaci/lzallright/issues/25)
 
 
-## [v0.2.2](https://github.com/vlaci/lzallright/tree/vv0.2.2) - 2023-05-28
+## [0.2.2](https://github.com/vlaci/lzallright/tree/v0.2.2) - 2023-05-28
 
 No significant changes.
 
