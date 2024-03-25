@@ -1,6 +1,7 @@
 inputs:
 
 { lib
+, callPackage
 , system
 , stdenv
 , python3
@@ -87,10 +88,14 @@ python3.pkgs.buildPythonPackage
       source <(cargo llvm-cov show-env --export-prefix)
     '';
 
-    nativeBuildInputs = with rustPlatform; [
-      cargoSetupHook
-      (maturinBuildHook.override { pkgsHostTarget = { inherit maturin cargo rustc; }; })
-    ] ++ optional coverage cargo-llvm-cov;
+    nativeBuildInputs =
+      let
+        rustHooks = callPackage "${inputs.nixpkgs}/pkgs/build-support/rust/hooks" { };
+      in
+      [
+        rustPlatform.cargoSetupHook
+        (rustHooks.maturinBuildHook.override { pkgsHostTarget = { inherit maturin cargo rustc; }; })
+      ] ++ optional coverage cargo-llvm-cov;
 
     passthru = {
       inherit cargoArtifacts craneLib craneLibLLvmTools commonArgs liblzallright;
