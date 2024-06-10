@@ -78,6 +78,8 @@
             liblzallright-coverage = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
               inherit cargoArtifacts;
               cargoLlvmCovExtraArgs = "--ignore-filename-regex /nix/store --codecov --output-path $out";
+
+              env.RUSTFLAGS = "-Z linker-features=-lld";
             });
 
             # Run tests with cargo-nextest
