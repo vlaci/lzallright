@@ -31,7 +31,7 @@ jobs:
             arch: x86_64-linux
           - os: ubuntu-latest
             arch: aarch64-linux
-          - os: macos-latest
+          - os: macos-12
             arch: x86_64-darwin
     name: Build Nix - ${{ matrix.arch }}.${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -182,7 +182,7 @@ jobs:
 
   MacOS:
     needs: [Nix]
-    runs-on: macos-latest
+    runs-on: macos-12
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.9"
     strategy:

@@ -78,6 +78,8 @@
             liblzallright-coverage = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
               inherit cargoArtifacts;
               cargoLlvmCovExtraArgs = "--ignore-filename-regex /nix/store --codecov --output-path $out";
+
+              env.RUSTFLAGS = "-Z linker-features=-lld";
             });
 
             # Run tests with cargo-nextest
@@ -105,16 +107,16 @@
         in
         {
           default = pkgs.mkShell {
-              inputsFrom = builtins.attrValues self.checks.${system};
+            inputsFrom = builtins.attrValues self.checks.${system};
 
-              # Extra inputs can be added here
-              nativeBuildInputs = with pkgs;
-                [
-                  maturin
-                  pdm
-                  cargo-msrv
-                ];
-            };
+            # Extra inputs can be added here
+            nativeBuildInputs = with pkgs;
+              [
+                maturin
+                pdm
+                cargo-msrv
+              ];
+          };
         });
 
       formatter = forAllSystems (system: nixpkgsFor.${system}.nixpkgs-fmt);
