@@ -171,7 +171,7 @@ jobs:
         with:
           name: wheels
           path: dist
-      - uses: pdm-project/setup-pdm@v3
+      - uses: pdm-project/setup-pdm@v4
         name: Setup PDM
       - name: Test wheels
         if: ${{ matrix.target == 'x64' }}
@@ -209,7 +209,7 @@ jobs:
         with:
           name: wheels
           path: dist
-      - uses: pdm-project/setup-pdm@v3
+      - uses: pdm-project/setup-pdm@v4
         name: Setup PDM
       - name: Test wheels
         if: ${{ matrix.target == 'x86_64' }}
