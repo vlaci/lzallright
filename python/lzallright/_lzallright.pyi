@@ -2,7 +2,11 @@ from array import array
 from mmap import mmap
 from typing import Optional, Tuple, Union
 
-_BufferType = Union[array[int], bytes, bytearray, memoryview, mmap]
+import typing_extensions
+
+_BufferType: typing_extensions.TypeAlias = Union[
+    array[int], bytes, bytearray, memoryview, mmap
+]
 
 class LZOCompressor:
     """Object containing the compressor state.
