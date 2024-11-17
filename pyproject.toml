@@ -69,7 +69,7 @@ all = { composite = ["clippy", "test", "venv", "mypy", "pytest"] }
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "black      ~= 23.3.0",
+    "black      ~=23.12.1",
     "ruff       ~=0.7.4",
     "mypy       ~= 1.2",
     "towncrier  ~=24.8.0",
