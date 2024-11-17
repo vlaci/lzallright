@@ -128,7 +128,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-linux-${{ matrix.target }}-${{ matrix.tag }}
           path: dist
       - name: Test wheels
         run: |
@@ -167,7 +167,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-windows-${{ matrix.target }}
           path: dist
       - uses: pdm-project/setup-pdm@v3
         name: Setup PDM
@@ -205,7 +205,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ matrix.target }}
           path: dist
       - uses: pdm-project/setup-pdm@v3
         name: Setup PDM
@@ -229,7 +229,7 @@ jobs:
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: sdist
           path: dist
 
   release:
@@ -240,7 +240,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          merge-multiple: true
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         env:
