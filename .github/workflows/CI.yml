@@ -67,11 +67,13 @@ jobs:
         with:
           flags: cargo-test
           files: cargo-test/coverage.codecov
+          token: ${{ secrets.CODECOV_TOKEN }}
       - uses: codecov/codecov-action@v5
         if: ${{ matrix.arch == 'x86_64-linux' }}
         with:
           flags: pytest
           files: pytest/coverage.codecov
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   Linux:
     needs: [Nix]
