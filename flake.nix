@@ -110,6 +110,8 @@
               maturin
               pdm
               cargo-msrv
+              cargo
+              rustc
             ];
           };
         }
