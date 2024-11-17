@@ -1,18 +1,19 @@
 inputs:
 
-{ lib
-, callPackage
-, system
-, stdenv
-, python3
-, libiconv
-, maturin
-, cargo
-, rustc
-, rustPlatform
-, makeRustPlatform
-, cargo-llvm-cov
-, coverage ? false
+{
+  lib,
+  callPackage,
+  system,
+  stdenv,
+  python3,
+  libiconv,
+  maturin,
+  cargo,
+  rustc,
+  rustPlatform,
+  makeRustPlatform,
+  cargo-llvm-cov,
+  coverage ? false,
 }:
 
 let
@@ -21,14 +22,14 @@ let
   cppFilter = path: _type: builtins.match ".*(h|c)pp$" path != null;
   assetFilter = path: _type: builtins.match ".*(benches|benches/.*\.txt)$" path != null;
 
-  sourceFilter = path: type:
+  sourceFilter =
+    path: type:
     (cppFilter path type) || (assetFilter path type) || (craneLib.filterCargoSources path type);
 
   src = lib.cleanSourceWith {
     src = craneLib.path ./.;
     filter = p: t: (pyFilter p t) || (sourceFilter p t);
   };
-
 
   # Common arguments can be set here to avoid repeating them later
   commonArgs = {
@@ -39,11 +40,13 @@ let
     # and the standalone dylib which is used for tests and benchmarks
     doNotLinkInheritedArtifacts = true;
 
-    buildInputs = [
-      python3
-    ] ++ lib.optionals stdenv.isDarwin [
-      libiconv
-    ];
+    buildInputs =
+      [
+        python3
+      ]
+      ++ lib.optionals stdenv.isDarwin [
+        libiconv
+      ];
   };
 
   # Build *just* the cargo dependencies, so we can reuse
@@ -52,10 +55,12 @@ let
 
   # Build the actual crate itself, reusing the dependency
   # artifacts from above.
-  liblzallright = craneLib.buildPackage (commonArgs // {
-    inherit cargoArtifacts;
-  });
-
+  liblzallright = craneLib.buildPackage (
+    commonArgs
+    // {
+      inherit cargoArtifacts;
+    }
+  );
 
   rust-toolchain-llvm-tools = inputs.fenix.packages.${system}.complete.withComponents [
     "llvm-tools-preview"
@@ -69,11 +74,12 @@ let
 
   craneLibLLvmTools = craneLib.overrideToolchain rust-toolchain-llvm-tools;
 
-  pyFilter = path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
+  pyFilter =
+    path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
 in
-python3.pkgs.buildPythonPackage
-  (commonArgs //
-  {
+python3.pkgs.buildPythonPackage (
+  commonArgs
+  // {
     pname = liblzallright.pname + (optionalString coverage "-coverage");
     inherit (liblzallright) version src;
     format = "pyproject";
@@ -94,13 +100,33 @@ python3.pkgs.buildPythonPackage
       in
       [
         rustPlatform.cargoSetupHook
-        (rustHooks.maturinBuildHook.override { pkgsHostTarget = { inherit maturin cargo rustc; }; })
-      ] ++ optional coverage cargo-llvm-cov;
+        (rustHooks.maturinBuildHook.override {
+          pkgsHostTarget = {
+            inherit maturin cargo rustc;
+          };
+        })
+      ]
+      ++ optional coverage cargo-llvm-cov;
 
     passthru = {
-      inherit cargoArtifacts craneLib craneLibLLvmTools commonArgs liblzallright;
+      inherit
+        cargoArtifacts
+        craneLib
+        craneLibLLvmTools
+        commonArgs
+        liblzallright
+        ;
       tests = import ./tests.nix {
-        inherit lib system rustPlatform-cov rust-toolchain-llvm-tools python3 sourceFilter assetFilter;
+        inherit
+          lib
+          system
+          rustPlatform-cov
+          rust-toolchain-llvm-tools
+          python3
+          sourceFilter
+          assetFilter
+          ;
       };
     };
-  })
+  }
+)
