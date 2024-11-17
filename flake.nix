@@ -9,18 +9,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.rust-analyzer-src.follows = "";
-    };
-
     flake-utils.url = "github:numtide/flake-utils";
 
     advisory-db = {
       url = "github:rustsec/advisory-db";
       flake = false;
     };
+
+    crane-maturin.url = "github:vlaci/crane-maturin";
   };
 
   outputs =
@@ -28,10 +24,10 @@
       self,
       nixpkgs,
       crane,
-      fenix,
+      crane-maturin,
       advisory-db,
       ...
-    }@inputs:
+    }:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -49,87 +45,44 @@
       );
     in
     {
-      overlays.default = final: prev: {
-        pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-          (python-final: python-prev: {
-            lzallright = final.callPackage (import ./lzallright.nix inputs) { python3 = python-final.python; };
-          })
-        ];
-      };
+      overlays.default =
+        final: prev:
+        let
+          cmLib = crane-maturin.mkLib crane final;
+
+          assetFilter = path: _type: builtins.match ".*(benches|benches/.*\.txt)$" path != null;
+          cppFilter = path: _type: builtins.match ".*(h|c)pp$" path != null;
+          pyFilter =
+            path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
+          sourceFilter =
+            path: type:
+            (cppFilter path type) || (assetFilter path type) || (cmLib.filterCargoSources path type);
+          testFilter = p: t: builtins.match ".*/(pyproject\.toml|tests|tests/.*\.py)$" p != null;
+
+        in
+        {
+          pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+            (python-final: python-prev: {
+              lzallright = cmLib.buildMaturinPackage {
+                src = final.lib.cleanSourceWith {
+                  src = cmLib.path ./.;
+                  filter = p: t: (pyFilter p t) || (sourceFilter p t);
+                };
+                testSrc = final.lib.cleanSourceWith {
+                  src = ./.;
+                  filter = p: t: (sourceFilter p t) || (testFilter p t) || (assetFilter p t);
+                };
+                inherit advisory-db;
+              };
+            })
+          ];
+        };
       checks = forAllSystems (
         system:
         let
-          inherit (nixpkgsFor.${system}) lib;
           inherit (nixpkgsFor.${system}.python3Packages) lzallright;
-          inherit (lzallright)
-            liblzallright
-            cargoArtifacts
-            commonArgs
-            craneLib
-            craneLibLLvmTools
-            src
-            ;
         in
         lzallright.passthru.tests
-        // {
-          # Build the crate as part of `nix flake check` for convenience
-          inherit liblzallright;
-
-          # Run clippy (and deny all warnings) on the crate source,
-          # again, resuing the dependency artifacts from above.
-          #
-          # Note that this is done as a separate derivation so that
-          # we can block the CI if there are issues here, but not
-          # prevent downstream consumers from building our crate by itself.
-          liblzallright-clippy = craneLib.cargoClippy (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-            }
-          );
-
-          liblzallright-doc = craneLib.cargoDoc (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-            }
-          );
-
-          # Check formatting
-          liblzallright-fmt = craneLib.cargoFmt {
-            inherit src;
-          };
-
-          # Audit dependencies
-          liblzallright-audit = craneLib.cargoAudit {
-            inherit src advisory-db;
-          };
-        }
-        // lib.optionalAttrs (system == "x86_64-linux") {
-          # Check code coverage (note: this will not upload coverage anywhere)
-          liblzallright-coverage = craneLibLLvmTools.cargoLlvmCov (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-              cargoLlvmCovExtraArgs = "--ignore-filename-regex /nix/store --codecov --output-path $out";
-
-              env.RUSTFLAGS = "-Z linker-features=-lld";
-            }
-          );
-
-          # Run tests with cargo-nextest
-          # Consider setting `doCheck = false` on `liblzallright` if you do not want
-          # the tests to run twice
-          liblzallright-nextest = craneLib.cargoNextest (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-              partitions = 1;
-              partitionType = "count";
-            }
-          );
-        }
       );
 
       packages = forAllSystems (
