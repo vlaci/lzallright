@@ -110,7 +110,13 @@
               maturin
               pdm
               cargo-msrv
+              cargo
+              rustc
             ];
+
+            shellHook = ''
+              ${pkgs.lib.getExe pkgs.patchelf} --set-interpreter ${pkgs.stdenv.cc.bintools.dynamicLinker} $(git rev-parse --show-toplevel)/.venv/bin/ruff
+            '';
           };
         }
       );

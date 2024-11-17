@@ -64,12 +64,14 @@ venv = "pdm sync -d"
 mypy = "mypy ."
 pytest = "python -m pytest tests"
 clippy = "cargo clippy --all-targets -- --deny warnings"
+cargofmt = "cargo fmt"
+ruff-format = "ruff format"
+ruff-check = "ruff check"
 test = "cargo test"
-all = { composite = ["clippy", "test", "venv", "mypy", "pytest"] }
+all = { composite = ["clippy", "cargofmt", "test", "venv", "ruff-check", "ruff-format", "mypy", "pytest"] }
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "black      ~= 23.3.0",
     "ruff       ~=0.7.4",
     "mypy       ~= 1.2",
     "towncrier  ~=24.8.0",
@@ -83,7 +85,7 @@ docs = [
     "mkdocs-material>=9.1.14",
 ]
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
   "A",      # flake8-builtins
   "ARG",    # flake8-unused-arguments
@@ -97,7 +99,6 @@ select = [
   "FBT",    # flake8-boolean-trap
   "G",      # flake8-logging-format
   "I",      # isort
-  "ISC",    # flake8-implicit-str-concats
   "N",      # pep8-naming
   "PIE",    # flake8-pie
   "PYI",    # flake8-pyi
@@ -127,19 +128,19 @@ ignore = [
   "UP007",   # non-pep604-annotation:          For Python 3.8 compatibility
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/*" = [
   "S101",    # assert:                         Enable usage of asserts
   "D1",      # undocumented-*
 ]
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["lzallright"]
 
-[tool.ruff.flake8-pytest-style]
+[tool.ruff.lint.flake8-pytest-style]
 fixture-parentheses = false
 mark-parentheses = false
 parametrize-names-type = "csv"
