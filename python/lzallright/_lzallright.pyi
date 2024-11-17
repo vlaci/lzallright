@@ -73,7 +73,7 @@ class LZOError(Exception):
 class InputNotConsumed(LZOError):  # noqa: N818
     """Decompression finished with leftover data."""
 
-    args: Tuple[EResult, bytes]
+    args: Tuple[EResult, bytes]  # type: ignore[assignment]
     """Error reason, with decompressed data
 
     ``(EResult.InputNotConsumed, decompressed: bytes)``
