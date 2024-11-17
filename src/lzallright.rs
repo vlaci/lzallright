@@ -1,16 +1,16 @@
+#![allow(ambiguous_associated_items)] // EResult::Error
 use cxx::UniquePtr;
 use pyo3::{
     create_exception,
     ffi::PyBytes_FromObject,
     prelude::*,
     types::{PyByteArray, PyBytes},
-    AsPyPointer,
 };
 
 use crate::python::Buffer;
 
+#[pyclass(eq, eq_int, module = "lzallright._lzallright")]
 #[derive(Debug, PartialEq, Eq)]
-#[pyclass(module = "lzallright._lzallright")]
 pub enum EResult {
     LookbehindOverrun,
     OutputOverrun,
@@ -53,7 +53,7 @@ impl LZOCompressor {
         }
     }
 
-    pub fn compress<'a>(&mut self, py: Python<'a>, data: Buffer) -> PyResult<&'a PyBytes> {
+    pub fn compress<'a>(&mut self, py: Python<'a>, data: Buffer) -> PyResult<Bound<'a, PyBytes>> {
         let max_size = data.len() + data.len() / 16 + 64 + 3;
         let mut result = lzokay_sys::EResult::Error;
         let mut compressed_size = 0usize;
@@ -72,19 +72,21 @@ impl LZOCompressor {
         })?;
         dst.resize(compressed_size)?;
         match result {
-            lzokay_sys::EResult::Success => {
-                Ok(unsafe { py.from_owned_ptr(PyBytes_FromObject(dst.as_ptr())) })
-            }
+            lzokay_sys::EResult::Success => Ok(unsafe {
+                Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr()))
+                    .downcast_into_unchecked()
+            }),
             e => Err(LZOError::new_err(EResult::from(e))),
         }
     }
 
     #[staticmethod]
+    #[pyo3(signature = (data, output_size_hint = None))]
     pub fn decompress<'a>(
         py: Python<'a>,
         data: Buffer,
         output_size_hint: Option<usize>,
-    ) -> PyResult<&'a PyBytes> {
+    ) -> PyResult<Bound<'a, PyBytes>> {
         let size = if let Some(size) = output_size_hint {
             size
         } else {
@@ -112,7 +114,9 @@ impl LZOCompressor {
         }
         dst.resize(decompressed_size)?;
 
-        let rv = unsafe { py.from_owned_ptr::<PyBytes>(PyBytes_FromObject(dst.as_ptr())) };
+        let rv = unsafe {
+            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
+        };
         match result {
             lzokay_sys::EResult::Success => Ok(rv),
             lzokay_sys::EResult::InputNotConsumed => {
@@ -133,7 +137,7 @@ impl Default for LZOCompressor {
 }
 
 #[pymodule]
-fn _lzallright(py: Python, m: &PyModule) -> PyResult<()> {
+fn _lzallright(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LZOCompressor>()?;
     m.add_class::<EResult>()?;
     m.add("LZOError", py.get_type::<LZOError>())?;
@@ -171,7 +175,7 @@ mod test {
 
         Python::with_gil(|py| {
             let err = LZOCompressor::decompress(py, LOREM.into(), None).unwrap_err();
-            assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
+            assert!(err.get_type(py).is(&PyType::new::<LZOError>(py)));
         });
     }
 

@@ -1,4 +1,4 @@
-use pyo3::{ffi, prelude::*, AsPyPointer};
+use pyo3::{ffi, prelude::*};
 
 use std::{
     ffi::{c_int, c_void},
@@ -22,8 +22,8 @@ impl<'a> Deref for Buffer<'a> {
     }
 }
 
-impl<'a> FromPyObject<'a> for Buffer<'a> {
-    fn extract(ob: &'a pyo3::PyAny) -> pyo3::PyResult<Self> {
+impl<'py> FromPyObject<'py> for Buffer<'py> {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
         let mut buf = ptr::null::<u8>();
         let mut len = 0usize;
         let buf = unsafe {
@@ -40,6 +40,7 @@ impl<'a> FromPyObject<'a> for Buffer<'a> {
         Ok(Buffer(buf))
     }
 }
+
 extern "C" {
     fn PyObject_AsReadBuffer(
         obj: *mut ffi::PyObject,
