@@ -10,6 +10,13 @@ This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.2.5](https://github.com/vlaci/lzallright/tree/v0.2.5) - 2024-11-18
+
+
+### Changed
+
+- Updated PyO3 to 0.23 [#61](https://github.com/vlaci/lzallright/issues/61)
+
 ## [0.2.4](https://github.com/vlaci/lzallright/tree/v0.2.4) - 2023-12-15
 
 
