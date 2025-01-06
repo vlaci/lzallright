@@ -14,7 +14,7 @@ impl<'a> From<&'a [u8]> for Buffer<'a> {
     }
 }
 
-impl<'a> Deref for Buffer<'a> {
+impl Deref for Buffer<'_> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
