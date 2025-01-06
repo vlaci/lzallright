@@ -10,6 +10,7 @@ mod lzokay {
         InputNotConsumed,
     }
 
+    #[allow(clippy::missing_safety_doc)]
     unsafe extern "C++" {
         include!("lzokay-sys/wrapper.hpp");
 
