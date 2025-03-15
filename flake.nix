@@ -108,6 +108,7 @@
               cargo-msrv
               cargo
               rustc
+              gnuplot
             ];
 
             shellHook = ''
