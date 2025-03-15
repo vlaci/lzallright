@@ -99,8 +99,6 @@
         in
         {
           default = pkgs.mkShell {
-            inputsFrom = builtins.attrValues self.checks.${system};
-
             # Extra inputs can be added here
             nativeBuildInputs = with pkgs; [
               maturin
@@ -108,6 +106,7 @@
               cargo-msrv
               cargo
               rustc
+              rustfmt
               gnuplot
             ];
 
