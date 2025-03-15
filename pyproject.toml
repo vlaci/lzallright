@@ -1,5 +1,6 @@
 [project]
 name = "lzallright"
+version = "0.2.5"
 authors = [
     {name = "László Vaskó", email = "1771332+vlaci@users.noreply.github.com"},
 ]
@@ -9,13 +10,27 @@ dynamic = [
     'description',
     'license',
     'readme',
-    'version'
 ]
 
 [project.urls]
 Homepage = "https://vlaci.github.io/lzallright"
 Repository = "https://github.com/vlaci/lzallright"
 Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12,<0.13",
+    "mypy>=1.2,<2.0",
+    "towncrier>=24.8.0,<25.0.0"
+]
+test = [
+    "pytest>=8.3.3,<9.0.0"
+]
+docs = [
+    "mkdocs>=1.4.3",
+    "mkdocstrings[python]>=0.22.0",
+    "mkdocs-material>=9.1.14"
+]
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
@@ -57,33 +72,6 @@ showcontent = true
 directory = "fixed"
 name = "Fixed"
 showcontent = true
-
-[tool.pdm.scripts]
-changelog = "towncrier"
-venv = "pdm sync -d"
-mypy = "mypy ."
-pytest = "python -m pytest tests"
-clippy = "cargo clippy --all-targets -- --deny warnings"
-cargofmt = "cargo fmt"
-ruff-format = "ruff format"
-ruff-check = "ruff check"
-test = "cargo test"
-all = { composite = ["clippy", "cargofmt", "test", "venv", "ruff-check", "ruff-format", "mypy", "pytest"] }
-
-[tool.pdm.dev-dependencies]
-dev = [
-    "ruff       ~=0.12.0",
-    "mypy       ~= 1.2",
-    "towncrier  ~=24.8.0",
-]
-test = [
-    "pytest     ~=8.3.3",
-]
-docs = [
-    "mkdocs>=1.4.3",
-    "mkdocstrings[python]>=0.22.0",
-    "mkdocs-material>=9.1.14",
-]
 
 [tool.ruff.lint]
 select = [

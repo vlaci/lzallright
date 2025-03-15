@@ -119,7 +119,23 @@
         "crane": "crane",
         "crane-maturin": "crane-maturin",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "shell-hooks": "shell-hooks"
+      }
+    },
+    "shell-hooks": {
+      "locked": {
+        "lastModified": 1741892210,
+        "narHash": "sha256-OQmWiMVR9J7qh8GskXyuWZg3si3LIbFzIHismGqMK6g=",
+        "owner": "vlaci",
+        "repo": "nix-shell-hooks",
+        "rev": "8281e1e28f7689a6cd56b00ef4501a603a31fd14",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vlaci",
+        "repo": "nix-shell-hooks",
+        "type": "github"
       }
     },
     "systems": {

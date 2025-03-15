@@ -12,7 +12,7 @@ readme.workspace = true
 
 include = [
     "/pyproject.toml",
-    "/pdm.lock",
+    "/uv.lock",
     "/README.md",
     "/LICENSE",
     "/benches",

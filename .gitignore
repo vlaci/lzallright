@@ -1,6 +1,5 @@
 /target
 result*
-.pdm-python
 .venv
 __pycache__
 *.so

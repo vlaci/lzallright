@@ -13,6 +13,7 @@
     };
 
     crane-maturin.url = "github:vlaci/crane-maturin";
+    shell-hooks.url = "github:vlaci/nix-shell-hooks";
   };
 
   outputs =
@@ -22,6 +23,7 @@
       crane,
       crane-maturin,
       advisory-db,
+      shell-hooks,
       ...
     }:
     let
@@ -36,7 +38,10 @@
         system:
         import nixpkgs {
           inherit system;
-          overlays = [ self.overlays.default ];
+          overlays = [
+            self.overlays.default
+            shell-hooks.overlays.default
+          ];
         }
       );
     in
@@ -99,20 +104,16 @@
         in
         {
           default = pkgs.mkShell {
-            # Extra inputs can be added here
-            nativeBuildInputs = with pkgs; [
-              maturin
-              pdm
+            packages = with pkgs; [
               cargo-msrv
               cargo
               rustc
               rustfmt
               gnuplot
+              python3Packages.uvVenvShellHook
+              python3Packages.maturinImportShellHook
+              python3Packages.autoPatchelfVenvShellHook
             ];
-
-            shellHook = ''
-              ${pkgs.lib.getExe pkgs.patchelf} --set-interpreter ${pkgs.stdenv.cc.bintools.dynamicLinker} $(git rev-parse --show-toplevel)/.venv/bin/ruff
-            '';
           };
         }
       );
