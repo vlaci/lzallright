@@ -4,3 +4,4 @@ result*
 .venv
 __pycache__
 *.so
+/.direnv/
