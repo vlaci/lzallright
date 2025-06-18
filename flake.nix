@@ -107,6 +107,8 @@
             packages = with pkgs; [
               cargo-msrv
               cargo
+              clippy
+              rust-analyzer
               rustc
               rustfmt
               gnuplot
