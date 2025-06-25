@@ -77,7 +77,7 @@ dev = [
     "towncrier  ~=24.8.0",
 ]
 test = [
-    "pytest     ~=8.3.3",
+    "pytest     ~=8.4.1",
 ]
 docs = [
     "mkdocs>=1.4.3",
