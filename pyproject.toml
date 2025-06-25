@@ -72,7 +72,7 @@ all = { composite = ["clippy", "cargofmt", "test", "venv", "ruff-check", "ruff-f
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "ruff       ~=0.8.6",
+    "ruff       ~=0.12.0",
     "mypy       ~= 1.2",
     "towncrier  ~=24.8.0",
 ]
