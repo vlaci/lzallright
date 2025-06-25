@@ -4,7 +4,7 @@ authors = [
     {name = "László Vaskó", email = "1771332+vlaci@users.noreply.github.com"},
 ]
 dependencies = []
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = [
     'description',
     'license',

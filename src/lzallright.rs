@@ -136,7 +136,7 @@ impl Default for LZOCompressor {
     }
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _lzallright(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LZOCompressor>()?;
     m.add_class::<EResult>()?;
@@ -175,7 +175,7 @@ mod test {
 
         Python::with_gil(|py| {
             let err = LZOCompressor::decompress(py, LOREM.into(), None).unwrap_err();
-            assert!(err.get_type(py).is(&PyType::new::<LZOError>(py)));
+            assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
         });
     }
 
