@@ -175,7 +175,7 @@ mod test {
 
         Python::with_gil(|py| {
             let err = LZOCompressor::decompress(py, LOREM.into(), None).unwrap_err();
-            assert!(err.get_type(py).is(&PyType::new::<LZOError>(py)));
+            assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
         });
     }
 
