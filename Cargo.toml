@@ -36,7 +36,7 @@ lzokay-sys = { path = "./lzokay-sys" }
 pyo3 = "0.24.0"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.6"
 
 [[bench]]
 name = "compress"
@@ -51,7 +51,7 @@ version = "0.2.5"
 authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.64"
+rust-version = "1.66"
 description = "A Python 3.8+ binding for LZ👌(lzokay) library"
 repository = "https://github.com/vlaci/lzallright"
 homepage = "https://github.com/vlaci/lzallright"
