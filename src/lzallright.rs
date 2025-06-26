@@ -136,7 +136,7 @@ impl Default for LZOCompressor {
     }
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _lzallright(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LZOCompressor>()?;
     m.add_class::<EResult>()?;
