@@ -118,6 +118,15 @@ jobs:
           sccache: ${{ matrix.target == 'musllinux_1_1' }}
           docker-options: -e CARGO_NET_GIT_FETCH_WITH_CLI=true
           manylinux: auto
+      - name: Build free-threaded wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          container: ${{ matrix.container }}
+          before-script-linux: ${{ matrix.before-script }}
+          args: --release --out dist -i python3.13t
+          sccache: ${{ matrix.target == 'musllinux_1_1' }}
+          manylinux: auto
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -130,7 +139,7 @@ jobs:
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH=/root/.local/bin:$PATH
             uv sync --no-install-project --group test
-            uv pip install dist/*.whl
+            uv pip install dist/*-cp38-abi3-*.whl
             .venv/bin/pytest
           EOF
 
@@ -149,12 +158,22 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
-          python-version-file: ".python-version"
+          enable-cache: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13t
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
+          sccache: "true"
+      - name: Build free-threaded wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist -i python3.13t
           sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -165,8 +184,8 @@ jobs:
         if: ${{ matrix.target == 'x64' }}
         run: |
           uv sync --no-install-project --group test
-          uv pip install (get-item .\dist\*.whl).FullName
-          uv run pytest
+          uv pip install (get-item .\dist\*-cp38-abi3-*.whl).FullName
+          &".\.venv\Scripts\pytest.exe"
 
   MacOS:
     needs: [Nix]
@@ -185,12 +204,22 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
+          enable-cache: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
           python-version-file: ".python-version"
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
+          sccache: "true"
+      - name: Build free-threaded wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist -i python3.13t
           sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -201,7 +230,7 @@ jobs:
         if: ${{ matrix.target == 'x86_64' }}
         run: |
           uv sync --no-install-project --group test
-          uv pip install dist/*.whl
+          uv pip install dist/*-cp38-abi3-*.whl
           .venv/bin/pytest
 
   sdist:
