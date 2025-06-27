@@ -10,6 +10,20 @@ This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the chang
 
 <!-- towncrier release notes start -->
 
+## [0.2.6](https://github.com/vlaci/lzallright/tree/v0.2.6) - 2025-06-27
+
+
+### Added
+
+- Experimental free-thredaing (nogil) support [#95](https://github.com/vlaci/lzallright/pull/95)
+
+
+### Changed
+
+- Switched to uv project manager from PDM [#93](https://github.com/vlaci/lzallright/pull/93)
+  - Dependency updates
+  - MSRV is bumped to rustc 1.66
+
 ## [0.2.5](https://github.com/vlaci/lzallright/tree/v0.2.5) - 2024-11-18
 
 
