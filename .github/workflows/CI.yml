@@ -36,7 +36,7 @@ jobs:
     name: Build Nix - ${{ matrix.arch }}.${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v16
         with:
@@ -100,7 +100,7 @@ jobs:
             os: ubuntu-24.04-arm
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -150,7 +150,7 @@ jobs:
       matrix:
         target: [x64, x86]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: cache rust
         uses: Swatinem/rust-cache@v2
         with:
@@ -196,7 +196,7 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: cache rust
         uses: Swatinem/rust-cache@v2
         with:
@@ -236,7 +236,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
