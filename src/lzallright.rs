@@ -6,7 +6,8 @@ use pyo3::{
     types::{PyByteArray, PyBytes},
 };
 
-use crate::lzokay;
+use crate::backend;
+use crate::error::{Error, ErrorKind};
 use crate::python::Buffer;
 
 #[pyclass(eq, eq_int, module = "lzallright._lzallright")]
@@ -19,14 +20,14 @@ pub enum EResult {
     InputNotConsumed,
 }
 
-impl From<&lzokay::Error> for EResult {
-    fn from(err: &lzokay::Error) -> Self {
-        match err {
-            lzokay::Error::LookbehindOverrun => EResult::LookbehindOverrun,
-            lzokay::Error::OutputOverrun => EResult::OutputOverrun,
-            lzokay::Error::InputOverrun => EResult::InputOverrun,
-            lzokay::Error::InputNotConsumed(_) => EResult::InputNotConsumed,
-            lzokay::Error::Error => EResult::Error,
+impl From<&Error> for EResult {
+    fn from(err: &Error) -> Self {
+        match err.kind() {
+            ErrorKind::LookbehindOverrun => EResult::LookbehindOverrun,
+            ErrorKind::OutputOverrun => EResult::OutputOverrun,
+            ErrorKind::InputOverrun => EResult::InputOverrun,
+            ErrorKind::InputNotConsumed => EResult::InputNotConsumed,
+            ErrorKind::Error => EResult::Error,
         }
     }
 }
@@ -40,7 +41,7 @@ create_exception!(lzallright._lzallright, InputNotConsumed, LZOError);
 
 #[pyclass(unsendable, module = "lzallright._lzallright")]
 pub struct LZOCompressor {
-    dict: lzokay::Dict,
+    dict: backend::Dict,
 }
 
 #[pymethods]
@@ -48,7 +49,7 @@ impl LZOCompressor {
     #[new]
     pub fn new() -> Self {
         Self {
-            dict: lzokay::Dict::new(),
+            dict: backend::Dict::new(),
         }
     }
 
@@ -62,7 +63,7 @@ impl LZOCompressor {
         let mut compressed_size = 0usize;
         let dst = PyByteArray::new_with(py, max_size, |dst| {
             compressed_size = py
-                .detach(|| lzokay::compress(src, dst, &mut self.dict))
+                .detach(|| backend::compress(src, dst, &mut self.dict))
                 .map_err(|e| LZOError::new_err(EResult::from(&e)))?;
             Ok(())
         })?;
@@ -85,8 +86,8 @@ impl LZOCompressor {
         let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
         let result = loop {
             let dst_bytes = unsafe { dst.as_bytes_mut() };
-            match py.detach(|| lzokay::decompress(src, dst_bytes)) {
-                Err(lzokay::Error::OutputOverrun) => {
+            match py.detach(|| backend::decompress(src, dst_bytes)) {
+                Err(e) if *e.kind() == ErrorKind::OutputOverrun => {
                     dst.resize(2 * dst.len())?;
                     continue;
                 }
@@ -96,7 +97,7 @@ impl LZOCompressor {
 
         let decompressed_size = match &result {
             Ok(size) => *size,
-            Err(lzokay::Error::InputNotConsumed(size)) => *size,
+            Err(e) if *e.kind() == ErrorKind::InputNotConsumed => e.dst_size(),
             Err(e) => return Err(LZOError::new_err(EResult::from(e))),
         };
         dst.resize(decompressed_size)?;
@@ -107,7 +108,7 @@ impl LZOCompressor {
         };
         match result {
             Ok(_) => Ok(rv),
-            Err(lzokay::Error::InputNotConsumed(_)) => {
+            Err(e) if *e.kind() == ErrorKind::InputNotConsumed => {
                 Err(InputNotConsumed::new_err::<(_, Py<PyBytes>)>((
                     EResult::InputNotConsumed,
                     rv.into(),
