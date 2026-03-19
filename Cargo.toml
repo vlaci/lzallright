@@ -30,9 +30,12 @@ crate-type = [
   "rlib"
 ]
 
+[features]
+lzokay = ["dep:lzokay-sys", "dep:cxx"]
+
 [dependencies]
-cxx = "1.0.94"
-lzokay-sys = { path = "./lzokay-sys" }
+cxx = { version = "1.0.94", optional = true }
+lzokay-sys = { path = "./lzokay-sys", optional = true }
 pyo3 = "0.25.0"
 
 [dev-dependencies]
