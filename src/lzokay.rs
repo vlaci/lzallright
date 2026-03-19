@@ -64,3 +64,50 @@ pub fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
     };
     map_result(result, out_size)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Crashing test samples found by running `cargo fuzz decompress`
+    // in the C++ lzokay library (out-of-bounds reads during
+    // zero-byte-length scanning and lookbehind pointer arithmetic).
+    //
+    // Run under AddressSanitizer (C++ & Rust):
+    //
+    //     CXXFLAGS="-fsanitize=address" RUSTFLAGS="-Zsanitizer=address" \
+    //       cargo test -Zbuild-std --target x86_64-unknown-linux-gnu \
+    //       -- lzokay::tests::fuzz_crash_
+
+    #[test]
+    fn fuzz_crash_m1_zero_scan_oob() {
+        let _ = decompress(&[0x00, 0x00, 0x00, 0x00], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn fuzz_crash_m3_zero_scan_oob() {
+        let _ = decompress(&[0x12, 0xAA, 0x20, 0x00], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn fuzz_crash_m4_zero_scan_oob() {
+        let _ = decompress(&[0x12, 0xAA, 0x10, 0x00], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn fuzz_crash_m2_lookbehind_overrun() {
+        let _ = decompress(&[0x12, 0xAA, 0xC0, 0xFF], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn fuzz_crash_m4_lookbehind_overrun() {
+        let mut dict = Dict::new();
+        let compressed = {
+            let mut buf = vec![0u8; 67];
+            let len = compress(&[], &mut buf, &mut dict).expect("Compress failed");
+            buf.truncate(len);
+            buf
+        };
+        let _ = decompress(&compressed, &mut [0u8; 0]);
+    }
+}
