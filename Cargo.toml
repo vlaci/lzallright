@@ -48,6 +48,7 @@ harness = false
 [workspace]
 resolver = "2"
 members = [".", "lzokay-sys"]
+exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.2.5"

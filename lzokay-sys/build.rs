@@ -77,10 +77,16 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=c++abi");
     }
 
-    cxx_build::bridge("src/lib.rs")
+    let mut build = cxx_build::bridge("src/lib.rs");
+    build
         .file(src_dir.join("lzokay.cpp").to_str().unwrap())
         .flag("-std=c++14")
         .flag_if_supported("-O2")
-        .flag_if_supported("-Wno-maybe-uninitialized")
-        .compile("lzokay-sys");
+        .flag_if_supported("-Wno-maybe-uninitialized");
+
+    if env::var("CARGO_CFG_SANITIZE").as_deref() == Ok("address") {
+        build.flag("-fsanitize=address");
+    }
+
+    build.compile("lzokay-sys");
 }
