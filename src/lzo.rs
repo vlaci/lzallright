@@ -567,6 +567,35 @@ unsafe fn decompress_inner(
             }
         };
     }
+    // Compute lookbehind pointer, returning LookbehindOverrun if the
+    // offset would land before the start of the output buffer.
+    macro_rules! lookbehind {
+        ($off:expr) => {{
+            let off = $off;
+            if off > (outp as usize - dst_base as usize) {
+                return Err(EResult::LookbehindOverrun);
+            }
+            outp.sub(off)
+        }};
+    }
+    // Scans forward from `inp` counting consecutive zero bytes for
+    // variable-length encoding. Returns the offset of the first non-zero byte.
+    macro_rules! consume_zero_byte_length {
+        () => {{
+            let mut offset = 0usize;
+            loop {
+                needs_in!(offset + 1);
+                if *inp.add(offset) != 0 {
+                    break;
+                }
+                offset += 1;
+                if offset > MAX_255_COUNT {
+                    return Err(EResult::Error);
+                }
+            }
+            offset
+        }};
+    }
 
     /* First byte encoding */
     if *inp >= 22 {
@@ -624,7 +653,7 @@ unsafe fn decompress_inner(
              *   distance = (H << 3) + D + 1
              */
             needs_in!(1);
-            lbcur = outp.sub(((*inp as usize) << 3) + ((inst >> 2) & 0x7) + 1);
+            lbcur = lookbehind!(((*inp as usize) << 3) + ((inst >> 2) & 0x7) + 1);
             inp = inp.add(1);
             lblen = (inst >> 5) + 1;
             nstate = inst & 0x3;
@@ -639,13 +668,7 @@ unsafe fn decompress_inner(
              */
             lblen = (inst & 0x1f) + 2;
             if lblen == 2 {
-                let mut offset = 0usize;
-                while *inp.add(offset) == 0 {
-                    offset += 1;
-                    if offset > MAX_255_COUNT {
-                        return Err(EResult::Error);
-                    }
-                }
+                let offset = consume_zero_byte_length!();
                 inp = inp.add(offset);
                 needs_in!(1);
                 lblen += offset * 255 + 31 + *inp as usize;
@@ -654,7 +677,7 @@ unsafe fn decompress_inner(
             needs_in!(2);
             nstate = get_le16(inp);
             inp = inp.add(2);
-            lbcur = outp.sub((nstate >> 2) + 1);
+            lbcur = lookbehind!((nstate >> 2) + 1);
             nstate &= 0x3;
         } else if inst & M4_MARKER != 0 {
             /* [M4]
@@ -668,13 +691,7 @@ unsafe fn decompress_inner(
              */
             lblen = (inst & 0x7) + 2;
             if lblen == 2 {
-                let mut offset = 0usize;
-                while *inp.add(offset) == 0 {
-                    offset += 1;
-                    if offset > MAX_255_COUNT {
-                        return Err(EResult::Error);
-                    }
-                }
+                let offset = consume_zero_byte_length!();
                 inp = inp.add(offset);
                 needs_in!(1);
                 lblen += offset * 255 + 7 + *inp as usize;
@@ -683,12 +700,12 @@ unsafe fn decompress_inner(
             needs_in!(2);
             nstate = get_le16(inp);
             inp = inp.add(2);
-            lbcur = outp.sub(((inst & 0x8) << 11) + (nstate >> 2));
+            let lb_off = ((inst & 0x8) << 11) + (nstate >> 2);
             nstate &= 0x3;
-            if lbcur == outp {
+            if lb_off == 0 {
                 break; /* Stream finished */
             }
-            lbcur = lbcur.sub(16384);
+            lbcur = lookbehind!(lb_off + 16384);
         } else {
             /* [M1] Depends on the number of literals copied by the last instruction. */
             if state == 0 {
@@ -702,13 +719,7 @@ unsafe fn decompress_inner(
                  */
                 let mut len = inst + 3;
                 if len == 3 {
-                    let mut offset = 0usize;
-                    while *inp.add(offset) == 0 {
-                        offset += 1;
-                        if offset > MAX_255_COUNT {
-                            return Err(EResult::Error);
-                        }
-                    }
+                    let offset = consume_zero_byte_length!();
                     inp = inp.add(offset);
                     needs_in!(1);
                     len += offset * 255 + 15 + *inp as usize;
@@ -739,7 +750,7 @@ unsafe fn decompress_inner(
                  */
                 needs_in!(1);
                 nstate = inst & 0x3;
-                lbcur = outp.sub((inst >> 2) + ((*inp as usize) << 2) + 1);
+                lbcur = lookbehind!((inst >> 2) + ((*inp as usize) << 2) + 1);
                 inp = inp.add(1);
                 lblen = 2;
             } else {
@@ -755,13 +766,10 @@ unsafe fn decompress_inner(
                  */
                 needs_in!(1);
                 nstate = inst & 0x3;
-                lbcur = outp.sub((inst >> 2) + ((*inp as usize) << 2) + 2049);
+                lbcur = lookbehind!((inst >> 2) + ((*inp as usize) << 2) + 2049);
                 inp = inp.add(1);
                 lblen = 3;
             }
-        }
-        if lbcur < dst_base {
-            return Err(EResult::LookbehindOverrun);
         }
 
         needs_in!(nstate);
@@ -939,6 +947,7 @@ mod tests {
         // Must return Err, never panic or UB
         let garbage_inputs: &[&[u8]] = &[
             &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+            &[0x00, 0x00, 0x00, 0x00, 0x00],
             &[0x11, 0x00, 0x00],
             &[22, 1, 2, 3, 4, 5],
         ];
