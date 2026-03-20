@@ -31,7 +31,7 @@ jobs:
             arch: x86_64-linux
           - os: ubuntu-24.04-arm
             arch: aarch64-linux
-          - os: macos-13
+          - os: macos-15-intel
             arch: x86_64-darwin
     name: Build Nix - ${{ matrix.arch }}.${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -77,10 +77,6 @@ jobs:
           - target: x86_64
             tag: manylinux2014
             container: quay.io/pypa/manylinux2014_x86_64:latest
-            os: ubuntu-24.04
-          - target: x86
-            container: quay.io/pypa/manylinux2014_i686:latest
-            tag: manylinux2014
             os: ubuntu-24.04
           - target: aarch64
             container: quay.io/pypa/manylinux2014_aarch64:latest
@@ -148,7 +144,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        target: [x64, x86]
+        target: [x64]
     steps:
       - uses: actions/checkout@v4
       - name: cache rust
@@ -172,7 +168,7 @@ jobs:
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.platform.target }}
+          target: ${{ matrix.target }}
           args: --release --out dist -i python3.13t
           sccache: "true"
       - name: Upload wheels
@@ -189,7 +185,7 @@ jobs:
 
   MacOS:
     needs: [Nix]
-    runs-on: macos-13
+    runs-on: macos-15-intel
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.9"
     strategy:
@@ -218,7 +214,7 @@ jobs:
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.platform.target }}
+          target: ${{ matrix.target }}
           args: --release --out dist -i python3.13t
           sccache: "true"
       - name: Upload wheels
