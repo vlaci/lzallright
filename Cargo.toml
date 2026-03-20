@@ -31,9 +31,12 @@ crate-type = [
 ]
 
 [dependencies]
-cxx = "1.0.94"
-lzokay-sys = { path = "./lzokay-sys" }
+cxx = { version = "1.0.94", optional = true }
+lzokay-sys = { path = "./lzokay-sys", optional = true }
 pyo3 = "0.29"
+
+[features]
+lzokay =  ["cxx", "lzokay-sys"]
 
 [dev-dependencies]
 criterion = "0.8"
@@ -52,8 +55,8 @@ version = "0.2.5"
 authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.88"
-description = "A Python 3.11+ binding for LZ👌(lzokay) library"
+rust-version = "1.83"
+description = "A Python 3.8+ binding for LZ👌(lzokay) library"
 repository = "https://github.com/vlaci/lzallright"
 homepage = "https://vlaci.github.io/lzallright"
 readme = "README.md"

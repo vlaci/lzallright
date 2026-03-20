@@ -48,6 +48,13 @@ fn reused_dict_matches_fresh_dict(data: &[u8]) {
     assert!(lzo_compress(data, &mut reused) == lzo_compress(data, &mut Dict::new()));
 }
 
+#[cfg(feature = "lzokay")]
+fn native_compressor_matches_lzokay(data: &[u8]) {
+    let mut out = vec![0; data.len() + data.len() / 16 + 64 + 3];
+    let len = lzallright::lzo::compress(data, &mut out, &mut lzallright::lzo::Dict::new()).unwrap();
+    assert!(out[..len] == lzo_compress(data, &mut Dict::new()));
+}
+
 macro_rules! inputs {
     ($($name:ident => $data:expr,)*) => {$(
         mod $name {
@@ -65,6 +72,12 @@ macro_rules! inputs {
             #[test]
             fn reused_dict_matches_fresh_dict() {
                 super::reused_dict_matches_fresh_dict(&data());
+            }
+
+            #[cfg(feature = "lzokay")]
+            #[test]
+            fn native_compressor_matches_lzokay() {
+                super::native_compressor_matches_lzokay(&data());
             }
         }
     )*};
