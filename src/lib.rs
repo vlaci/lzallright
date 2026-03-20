@@ -1,8 +1,11 @@
 mod lzallright;
+pub(crate) mod lzo;
 #[cfg(feature = "lzokay")]
 mod lzokay;
 mod python;
 
+#[cfg(not(feature = "lzokay"))]
+pub(crate) use lzo as backend;
 #[cfg(feature = "lzokay")]
 pub(crate) use lzokay as backend;
 
