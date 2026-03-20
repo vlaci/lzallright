@@ -1,13 +1,6 @@
 use cxx::UniquePtr;
 
-#[derive(Debug, PartialEq)]
-pub(crate) enum EResult {
-    LookbehindOverrun,
-    OutputOverrun,
-    InputOverrun,
-    InputNotConsumed(usize),
-    Error,
-}
+pub(crate) use crate::lzo::EResult;
 
 fn map_result(result: lzokay_sys::EResult, out_size: usize) -> Result<usize, EResult> {
     match result {
@@ -29,8 +22,8 @@ impl Default for Dict {
 }
 
 impl Dict {
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn new() -> Box<Self> {
+        Box::default()
     }
 }
 
@@ -69,38 +62,32 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
 mod tests {
     use super::*;
 
-    // Crashing test samples found by running `cargo fuzz decompress`
-    // in the C++ lzokay library (out-of-bounds reads during
-    // zero-byte-length scanning and lookbehind pointer arithmetic).
-    //
-    // Run under AddressSanitizer (C++ & Rust):
-    //
-    //     CXXFLAGS="-fsanitize=address" RUSTFLAGS="-Zsanitizer=address" \
-    //       cargo test -Zbuild-std --target x86_64-unknown-linux-gnu \
-    //       -- lzokay::tests::fuzz_crash_
+    // Regression tests verifying the C++ lzokay implementation handles the
+    // same malformed inputs that triggered UB in the Rust port. The C++
+    // library has the same zero-byte-length scanning bug.
 
     #[test]
-    fn fuzz_crash_m1_zero_scan_oob() {
+    fn regression_m1_zero_scan_oob() {
         let _ = decompress(&[0x00, 0x00, 0x00, 0x00], &mut [0u8; 1024]);
     }
 
     #[test]
-    fn fuzz_crash_m3_zero_scan_oob() {
+    fn regression_m3_zero_scan_oob() {
         let _ = decompress(&[0x12, 0xAA, 0x20, 0x00], &mut [0u8; 1024]);
     }
 
     #[test]
-    fn fuzz_crash_m4_zero_scan_oob() {
+    fn regression_m4_zero_scan_oob() {
         let _ = decompress(&[0x12, 0xAA, 0x10, 0x00], &mut [0u8; 1024]);
     }
 
     #[test]
-    fn fuzz_crash_m2_lookbehind_overrun() {
+    fn regression_m2_lookbehind_overrun() {
         let _ = decompress(&[0x12, 0xAA, 0xC0, 0xFF], &mut [0u8; 1024]);
     }
 
     #[test]
-    fn fuzz_crash_m4_lookbehind_overrun() {
+    fn regression_m4_lookbehind_overrun() {
         let mut dict = Dict::new();
         let compressed = {
             let mut buf = vec![0u8; 67];

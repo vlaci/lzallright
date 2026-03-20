@@ -342,6 +342,7 @@ docs = [
 ]
 test = [
     { name = "pytest" },
+    { name = "python-lzo" },
 ]
 
 [package.metadata]
@@ -357,7 +358,10 @@ docs = [
     { name = "mkdocs-material", specifier = ">=9.1.14" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.22.0" },
 ]
-test = [{ name = "pytest", specifier = ">=8.3.3,<9.0.0" }]
+test = [
+    { name = "pytest", specifier = ">=8.3.3,<9.0.0" },
+    { name = "python-lzo", specifier = ">0" },
+]
 
 [[package]]
 name = "markdown"
@@ -917,6 +921,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892 },
+]
+
+[[package]]
+name = "python-lzo"
+version = "1.15"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/8f/60cbc1a57257cd21c9e35217a8bc8713424dc7502df17794d914738df50f/python-lzo-1.15.tar.gz", hash = "sha256:a57aaa00c5c3a0515dd9f7426ba2cf601767dc19dc023d8b99d4a13b0a327b49", size = 17633 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/4c/c31aab61372115267ca8f0a36554808de8f5edaaac37a7f3c469af664ede/python_lzo-1.15-cp310-cp310-win_amd64.whl", hash = "sha256:6224b4362580b3e797fa12ccfb56da22d0a8faac3d900dd0eafcc881ed98eb29", size = 40037 },
+    { url = "https://files.pythonhosted.org/packages/85/13/be679f0243c67646b5dc64bb167a3ae9aa625aa8f881701c13e2dd2251c5/python_lzo-1.15-cp311-cp311-win_amd64.whl", hash = "sha256:6b00d32d53928514a3954385583c0d06850259fe8c54039260d0dbc0842a9d9e", size = 40036 },
+    { url = "https://files.pythonhosted.org/packages/e8/79/05e9e2d6ce6bae12b094b19eed5169477390a5654a19c9b0433c410c4c5f/python_lzo-1.15-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:27e4cb7d8b279ff0f1cff0f0627ac47c18faf7cd2ad7b989a2a9c174bd832224", size = 13423 },
+    { url = "https://files.pythonhosted.org/packages/25/7e/0b10f268b5d137bfccfd1768d8e2a402cc1933816fe23cd834cbab738bc2/python_lzo-1.15-cp38-cp38-win_amd64.whl", hash = "sha256:f42fe060f1333adfeed043ef11a6d3747fa452502fa7bada3b66377264bb7ad9", size = 40095 },
+    { url = "https://files.pythonhosted.org/packages/52/52/f32058cf554ecd4bb1b53226a620c6931c6aee858dbe0749e04ec8a07258/python_lzo-1.15-cp39-cp39-win_amd64.whl", hash = "sha256:a285bacc2e28ac07abe0c608c46734588c04f59820d9b60f7baf87cd3b3ce411", size = 40098 },
 ]
 
 [[package]]

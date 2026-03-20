@@ -80,6 +80,7 @@
                   src = ./.;
                   filter = p: t: (sourceFilter p t) || (testFilter p t) || (assetFilter p t);
                 };
+                pytestCheckInputs = [ python-final.python-lzo ];
                 inherit advisory-db;
               };
             })
@@ -120,6 +121,7 @@
                   extensions = [
                     "cargo"
                     "clippy"
+                    "miri"
                     "rust-src"
                     "rustc"
                     "rustfmt"
@@ -131,7 +133,9 @@
               python3Packages.uvVenvShellHook
               python3Packages.maturinImportShellHook
               python3Packages.autoPatchelfVenvShellHook
+              lzo
             ];
+            uvExtraArgs = "--all-groups";
           };
         }
       );

@@ -1,10 +1,5 @@
 #![allow(ambiguous_associated_items)] // EResult::Error
-use pyo3::{
-    create_exception,
-    ffi::PyBytes_FromObject,
-    prelude::*,
-    types::{PyByteArray, PyBytes},
-};
+use pyo3::{create_exception, prelude::*, types::PyBytes};
 
 use crate::python::Buffer;
 
@@ -18,14 +13,14 @@ pub enum EResult {
     InputNotConsumed,
 }
 
-impl From<&crate::backend::EResult> for EResult {
-    fn from(err: &crate::backend::EResult) -> Self {
+impl From<crate::backend::EResult> for EResult {
+    fn from(err: crate::backend::EResult) -> Self {
         match err {
             crate::backend::EResult::LookbehindOverrun => EResult::LookbehindOverrun,
             crate::backend::EResult::OutputOverrun => EResult::OutputOverrun,
             crate::backend::EResult::InputOverrun => EResult::InputOverrun,
-            crate::backend::EResult::InputNotConsumed(_) => EResult::InputNotConsumed,
             crate::backend::EResult::Error => EResult::Error,
+            crate::backend::EResult::InputNotConsumed(_) => EResult::InputNotConsumed,
         }
     }
 }
@@ -39,7 +34,7 @@ create_exception!(lzallright._lzallright, InputNotConsumed, LZOError);
 
 #[pyclass(unsendable, module = "lzallright._lzallright")]
 pub struct LZOCompressor {
-    dict: crate::backend::Dict,
+    dict: Box<crate::backend::Dict>,
 }
 
 #[pymethods]
@@ -53,18 +48,16 @@ impl LZOCompressor {
 
     pub fn compress<'a>(&mut self, py: Python<'a>, data: Buffer) -> PyResult<Bound<'a, PyBytes>> {
         let max_size = data.len() + data.len() / 16 + 64 + 3;
-        let mut compressed_size = 0usize;
-        let dst = PyByteArray::new_with(py, max_size, |dst| {
-            compressed_size = py
-                .allow_threads(|| crate::backend::compress(&data, dst, &mut self.dict))
-                .map_err(|e| LZOError::new_err(EResult::from(&e)))?;
-            Ok(())
-        })?;
-        dst.resize(compressed_size)?;
-        // SAFETY: dst is a valid PyByteArray; PyBytes_FromObject returns a new reference.
-        Ok(unsafe {
-            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
-        })
+
+        let mut dst = vec![0; max_size];
+        let result = py.allow_threads(|| crate::backend::compress(&data, &mut dst, &mut self.dict));
+        match result {
+            Ok(written) => {
+                let dst = PyBytes::new(py, &dst[0..written]);
+                Ok(dst)
+            }
+            Err(e) => Err(LZOError::new_err(EResult::from(e))),
+        }
     }
 
     #[staticmethod]
@@ -75,38 +68,25 @@ impl LZOCompressor {
         output_size_hint: Option<usize>,
     ) -> PyResult<Bound<'a, PyBytes>> {
         let size = output_size_hint.unwrap_or(2 * data.len());
-        let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
+        let mut dst = vec![0; size];
         let result = loop {
-            let dst_bytes = unsafe { dst.as_bytes_mut() };
-            match py.allow_threads(|| crate::backend::decompress(&data, dst_bytes)) {
+            match py.allow_threads(|| crate::backend::decompress(&data, &mut dst)) {
                 Err(crate::backend::EResult::OutputOverrun) => {
-                    dst.resize(2 * dst.len())?;
+                    dst.resize(dst.len() * 2, 0);
                     continue;
                 }
                 result => break result,
-            }
-        };
-
-        let decompressed_size = match &result {
-            Ok(size) => *size,
-            Err(crate::backend::EResult::InputNotConsumed(size)) => *size,
-            Err(e) => return Err(LZOError::new_err(EResult::from(e))),
-        };
-        dst.resize(decompressed_size)?;
-
-        // SAFETY: dst is a valid PyByteArray; PyBytes_FromObject returns a new reference.
-        let rv = unsafe {
-            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
+            };
         };
         match result {
-            Ok(_) => Ok(rv),
-            Err(crate::backend::EResult::InputNotConsumed(_)) => {
+            Ok(written) => Ok(PyBytes::new(py, &dst[0..written])),
+            Err(crate::backend::EResult::InputNotConsumed(written)) => {
                 Err(InputNotConsumed::new_err::<(_, Py<PyBytes>)>((
                     EResult::InputNotConsumed,
-                    rv.into(),
+                    PyBytes::new(py, &dst[..written]).into(),
                 )))
             }
-            Err(_) => unreachable!(),
+            Err(e) => Err(LZOError::new_err(EResult::from(e))),
         }
     }
 }

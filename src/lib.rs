@@ -1,5 +1,5 @@
 mod lzallright;
-pub(crate) mod lzo;
+pub mod lzo;
 #[cfg(feature = "lzokay")]
 mod lzokay;
 mod python;

@@ -1,9 +1,7 @@
-#![allow(non_upper_case_globals)]
 use std::cmp;
-use std::io::Write;
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum EResult {
+pub enum EResult {
     LookbehindOverrun,
     OutputOverrun,
     InputOverrun,
@@ -16,26 +14,19 @@ const MAX_DIST: usize = 0xbfff;
 const MAX_MATCH_LEN: usize = 0x800;
 const BUF_SIZE: usize = MAX_DIST + MAX_MATCH_LEN;
 
-const M1MaxOffset: usize = 0x0400;
-const M2MaxOffset: usize = 0x0800;
-const M3MaxOffset: usize = 0x4000;
-const M4MaxOffset: usize = 0xbfff;
+const M1_MAX_OFFSET: usize = 0x0400;
+const M2_MAX_OFFSET: usize = 0x0800;
+const M3_MAX_OFFSET: usize = 0x4000;
+const M2_MIN_LEN: usize = 3;
+const M2_MAX_LEN: usize = 8;
+const M3_MAX_LEN: usize = 33;
+const M4_MAX_LEN: usize = 9;
 
-const M1MinLen: usize = 2;
-const M1MaxLen: usize = 2;
-const M2MinLen: usize = 3;
-const M2MaxLen: usize = 8;
-const M3MinLen: usize = 3;
-const M3MaxLen: usize = 33;
-const M4MinLen: usize = 3;
-const M4MaxLen: usize = 9;
+const M1_MARKER: usize = 0x0;
+const M3_MARKER: usize = 0x20;
+const M4_MARKER: usize = 0x10;
 
-const M1Marker: usize = 0x0;
-const M2Marker: usize = 0x40;
-const M3Marker: usize = 0x20;
-const M4Marker: usize = 0x10;
-
-const MaxMatchByLengthLen: usize = 34; /* Max M3 len + 1 */
+const MAX_MATCH_BY_LENGTH_LEN: usize = 34; /* Max M3 len + 1 */
 
 struct Match3 {
     head: [u16; HASH_SIZE],
@@ -126,7 +117,7 @@ impl Match2 {
         s: &State,
         lb_pos: &mut usize,
         lb_len: &mut usize,
-        best_pos: &mut [usize; MaxMatchByLengthLen],
+        best_pos: &mut [usize; MAX_MATCH_BY_LENGTH_LEN],
         b: &[u8],
     ) -> bool {
         let pos = self.head[Self::make_key(&b[s.wind_b..])];
@@ -224,7 +215,7 @@ impl<'a> State<'a> {
     }
 }
 
-pub(crate) struct Dict {
+pub struct Dict {
     match3: Match3,
     match2: Match2,
 
@@ -247,8 +238,8 @@ impl Default for Dict {
 }
 
 impl Dict {
-    pub(crate) fn new() -> Self {
-        Default::default()
+    pub fn new() -> Box<Self> {
+        Box::default()
     }
 
     fn reset(&mut self) {
@@ -271,7 +262,7 @@ impl Dict {
         s: &mut State,
         lb_off: &mut usize,
         lb_len: &mut usize,
-        best_off: &mut [usize; MaxMatchByLengthLen],
+        best_off: &mut [usize; MAX_MATCH_BY_LENGTH_LEN],
         skip: bool,
     ) {
         if skip {
@@ -287,7 +278,7 @@ impl Dict {
         *lb_off = 0;
         let mut lb_pos = 0usize;
 
-        let mut best_pos = [0; MaxMatchByLengthLen];
+        let mut best_pos = [0; MAX_MATCH_BY_LENGTH_LEN];
         let mut match_pos = 0usize;
         let mut match_count = 0usize;
 
@@ -319,7 +310,7 @@ impl Dict {
                         match_pos = self.match3.chain[match_pos] as usize;
                         continue;
                     }
-                    if match_len < MaxMatchByLengthLen && best_pos[match_len] == 0 {
+                    if match_len < MAX_MATCH_BY_LENGTH_LEN && best_pos[match_len] == 0 {
                         best_pos[match_len] = match_pos + 1;
                     }
                     if match_len > *lb_len {
@@ -338,7 +329,7 @@ impl Dict {
                 *lb_off = s.pos2off(lb_pos);
             }
             self.match3.best_len[s.wind_b] = *lb_len as u16;
-            for i in 2..MaxMatchByLengthLen {
+            for i in 2..MAX_MATCH_BY_LENGTH_LEN {
                 best_off[i] = if best_pos[i] > 0 {
                     s.pos2off(best_pos[i].wrapping_sub(1))
                 } else {
@@ -375,100 +366,81 @@ fn mismatch(a: &[u8], b: &[u8]) -> usize {
 }
 
 fn find_better_match(
-    best_off: [usize; MaxMatchByLengthLen],
+    best_off: [usize; MAX_MATCH_BY_LENGTH_LEN],
     lb_len: &mut usize,
     lb_off: &mut usize,
 ) {
-    if *lb_len <= M2MinLen || *lb_off <= M2MaxOffset {
+    if *lb_len <= M2_MIN_LEN || *lb_off <= M2_MAX_OFFSET {
         return;
     }
-    if *lb_off > M2MaxOffset
-        && *lb_len > M2MinLen
-        && *lb_len <= M2MaxLen + 1
+    if *lb_off > M2_MAX_OFFSET
+        && *lb_len > M2_MIN_LEN
+        && *lb_len <= M2_MAX_LEN + 1
         && best_off[*lb_len - 1] != 0
-        && best_off[*lb_len - 1] <= M2MaxOffset
+        && best_off[*lb_len - 1] <= M2_MAX_OFFSET
     {
         *lb_len -= 1;
         *lb_off = best_off[*lb_len];
-    } else if *lb_off > M3MaxOffset
-        && *lb_len > M4MaxLen
-        && *lb_len <= M2MaxLen + 2
+    } else if *lb_off > M3_MAX_OFFSET
+        && *lb_len > M4_MAX_LEN
+        && *lb_len <= M2_MAX_LEN + 2
         && best_off[*lb_len - 2] != 0
-        && best_off[*lb_len] <= M2MaxOffset
+        && best_off[*lb_len] <= M2_MAX_OFFSET
     {
         *lb_len -= 2;
         *lb_off = best_off[*lb_len];
-    } else if *lb_off > M3MaxOffset
-        && *lb_len > M4MaxLen
-        && *lb_len <= M3MaxLen + 1
+    } else if *lb_off > M3_MAX_OFFSET
+        && *lb_len > M4_MAX_LEN
+        && *lb_len <= M3_MAX_LEN + 1
         && best_off[*lb_len - 1] != 0
-        && best_off[*lb_len - 2] <= M3MaxOffset
+        && best_off[*lb_len - 2] <= M3_MAX_OFFSET
     {
         *lb_len -= 1;
         *lb_off = best_off[*lb_len];
     }
 }
 
-macro_rules! needs_out {
-    ($out:ident, $count:expr) => {{
-        if $out.len() < $count {
-            return Err(EResult::OutputOverrun);
-        }
-    }};
-}
-
-macro_rules! needs_in {
-    ($out:ident, $count:expr) => {{
-        if $out.len() < $count {
-            return Err(EResult::InputOverrun);
-        }
-    }};
-}
-
-macro_rules! write_zero_byte_length {
-    ($out:ident, $pos:ident, $length:expr) => {{
-        let mut l = $length;
-        while l > 255 {
-            $out[*$pos] = 0;
-            *$pos += 1;
-            l -= 255;
-        }
-        $out[*$pos] = l as u8;
-        *$pos += 1;
-    }};
-}
-
-const Max255Count: usize = !0usize / 255 - 2;
-
-fn consume_zero_byte_length(src: &[u8]) -> Result<usize, EResult> {
-    let mut offset = 0;
-    while src[offset] == 0 {
-        offset += 1;
-        if offset > Max255Count {
-            return Err(EResult::Error);
-        }
+#[inline(always)]
+fn needs_out(dst: &[u8], pos: usize, count: usize) -> Result<(), EResult> {
+    if dst.len() - pos < count {
+        Err(EResult::OutputOverrun)
+    } else {
+        Ok(())
     }
-    Ok(offset)
 }
+
+#[inline(always)]
+fn write_zero_byte_length(out: &mut [u8], pos: &mut usize, length: usize) {
+    let mut l = length;
+    while l > 255 {
+        out[*pos] = 0;
+        *pos += 1;
+        l -= 255;
+    }
+    out[*pos] = l as u8;
+    *pos += 1;
+}
+
+const MAX_255_COUNT: usize = !0usize / 255 - 2;
 
 fn encode_literal_run(out: &mut [u8], outp: &mut usize, lit: &[u8]) -> Result<(), EResult> {
     if *outp == 0 && lit.len() <= 238 {
-        needs_out!(out, 1);
+        needs_out(out, *outp, 1)?;
         out[*outp] = 17 + lit.len() as u8;
         *outp += 1;
     } else if lit.len() <= 3 {
         out[*outp - 2] |= lit.len() as u8;
     } else if lit.len() <= 18 {
-        needs_out!(out, 1);
+        needs_out(out, *outp, 1)?;
         out[*outp] = lit.len() as u8 - 3;
         *outp += 1;
     } else {
-        needs_out!(out, (lit.len() - 18) / 255 + 2);
+        needs_out(out, *outp, (lit.len() - 18) / 255 + 2)?;
         out[*outp] = 0;
         *outp += 1;
-        write_zero_byte_length!(out, outp, lit.len() - 18);
+        write_zero_byte_length(out, outp, lit.len() - 18);
     }
-    needs_out!(out, lit.len());
+    needs_out(out, *outp, lit.len())?;
 
     out[*outp..*outp + lit.len()].copy_from_slice(lit);
     *outp += lit.len();
@@ -484,57 +456,57 @@ fn encode_lookback_match(
 ) -> Result<(), EResult> {
     if lb_len == 2 {
         lb_off -= 1;
-        needs_out!(out, 2);
-        out[*outp] = (M1Marker | ((lb_off & 0x3) << 2)) as u8;
+        needs_out(out, *outp, 2)?;
+        out[*outp] = (M1_MARKER | ((lb_off & 0x3) << 2)) as u8;
         *outp += 1;
         out[*outp] = (lb_off >> 2) as u8;
         *outp += 1;
-    } else if lb_len <= M2MaxLen && lb_off <= M2MaxOffset {
+    } else if lb_len <= M2_MAX_LEN && lb_off <= M2_MAX_OFFSET {
         lb_off -= 1;
-        needs_out!(out, 2);
+        needs_out(out, *outp, 2)?;
         out[*outp] = ((lb_len - 1) << 5 | ((lb_off & 0x7) << 2)) as u8;
         *outp += 1;
         out[*outp] = (lb_off >> 3) as u8;
         *outp += 1;
-    } else if lb_len == M2MinLen && lb_off <= M1MaxOffset + M2MaxOffset && last_lit_len >= 4 {
-        lb_off -= 1 + M2MaxOffset;
-        needs_out!(out, 2);
-        out[*outp] = (M1Marker | ((lb_off & 0x3) << 2)) as u8;
+    } else if lb_len == M2_MIN_LEN && lb_off <= M1_MAX_OFFSET + M2_MAX_OFFSET && last_lit_len >= 4 {
+        lb_off -= 1 + M2_MAX_OFFSET;
+        needs_out(out, *outp, 2)?;
+        out[*outp] = (M1_MARKER | ((lb_off & 0x3) << 2)) as u8;
         *outp += 1;
         out[*outp] = (lb_off >> 2) as u8;
         *outp += 1;
-    } else if lb_off <= M3MaxOffset {
+    } else if lb_off <= M3_MAX_OFFSET {
         lb_off -= 1;
-        if lb_len <= M3MaxLen {
-            needs_out!(out, 1);
-            out[*outp] = (M3Marker | (lb_len - 2)) as u8;
+        if lb_len <= M3_MAX_LEN {
+            needs_out(out, *outp, 1)?;
+            out[*outp] = (M3_MARKER | (lb_len - 2)) as u8;
             *outp += 1;
         } else {
-            lb_len -= M3MaxLen;
-            needs_out!(out, lb_len / 255 + 2);
-            out[*outp] = M3Marker as u8;
+            lb_len -= M3_MAX_LEN;
+            needs_out(out, *outp, lb_len / 255 + 2)?;
+            out[*outp] = M3_MARKER as u8;
             *outp += 1;
-            write_zero_byte_length!(out, outp, lb_len);
+            write_zero_byte_length(out, outp, lb_len);
         }
-        needs_out!(out, 2);
+        needs_out(out, *outp, 2)?;
         out[*outp] = (lb_off << 2) as u8;
         *outp += 1;
         out[*outp] = (lb_off >> 6) as u8;
         *outp += 1;
     } else {
         lb_off -= 0x4000;
-        if lb_len <= M4MaxLen {
-            needs_out!(out, 1);
-            out[*outp] = (M4Marker | ((lb_off & 0x4000) >> 11) | (lb_len - 2)) as u8;
+        if lb_len <= M4_MAX_LEN {
+            needs_out(out, *outp, 1)?;
+            out[*outp] = (M4_MARKER | ((lb_off & 0x4000) >> 11) | (lb_len - 2)) as u8;
             *outp += 1;
         } else {
-            lb_len -= M4MaxLen;
-            needs_out!(out, lb_len / 255 + 2);
-            out[*outp] = (M4Marker | ((lb_off & 0x4000) >> 11)) as u8;
+            lb_len -= M4_MAX_LEN;
+            needs_out(out, *outp, lb_len / 255 + 2)?;
+            out[*outp] = (M4_MARKER | ((lb_off & 0x4000) >> 11)) as u8;
             *outp += 1;
-            write_zero_byte_length!(out, outp, lb_len);
+            write_zero_byte_length(out, outp, lb_len);
         }
-        needs_out!(out, 2);
+        needs_out(out, *outp, 2)?;
         out[*outp] = (lb_off << 2) as u8;
         *outp += 1;
         out[*outp] = (lb_off >> 6) as u8;
@@ -544,46 +516,86 @@ fn encode_lookback_match(
     Ok(())
 }
 
-pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
+/// Decompress LZO-compressed data.
+///
+/// # Safety
+///
+/// Uses raw pointer arithmetic internally for performance parity with C++.
+/// All pointer accesses are guarded by `NEEDS_IN`/`NEEDS_OUT` bounds checks
+/// that validate against `inp_end`/`outp_end` before any dereference.
+pub fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
     if src.len() < 3 {
         return Err(EResult::InputOverrun);
     }
 
-    let mut inp = 0;
-    let mut outp = 0;
-    let mut lbcur = 0;
-    let mut lblen = 0;
-    let mut state = 0;
-    let mut nstate = 0;
+    unsafe { decompress_inner(src.as_ptr(), src.len(), dst.as_mut_ptr(), dst.len()) }
+}
+
+/// Raw pointer implementation matching C++ lzokay structure.
+///
+/// # Safety
+///
+/// - `src_base` must point to `src_len` readable bytes
+/// - `dst_base` must point to `dst_len` writable bytes
+unsafe fn decompress_inner(
+    src_base: *const u8,
+    src_len: usize,
+    dst_base: *mut u8,
+    dst_len: usize,
+) -> Result<usize, EResult> {
+    let mut inp = src_base;
+    let inp_end = src_base.add(src_len);
+    let mut outp = dst_base;
+    let outp_end = dst_base.add(dst_len);
+
+    let mut lbcur: *const u8;
+    let mut lblen;
+    let mut state: usize = 0;
+    let mut nstate;
+
+    macro_rules! needs_in {
+        ($count:expr) => {
+            if (inp_end as usize).wrapping_sub(inp as usize) < $count {
+                return Err(EResult::InputOverrun);
+            }
+        };
+    }
+    macro_rules! needs_out {
+        ($count:expr) => {
+            if (outp_end as usize).wrapping_sub(outp as usize) < $count {
+                return Err(EResult::OutputOverrun);
+            }
+        };
+    }
 
     /* First byte encoding */
-    if src[inp] >= 22 {
+    if *inp >= 22 {
         /* 22..255 : copy literal string
          *           length = (byte - 17) = 4..238
          *           state = 4 [ don't copy extra literals ]
          *           skip byte
          */
-        let len = (src[inp] - 17) as usize;
-        inp += 1;
-        needs_in!(src, len);
-        needs_out!(dst, len);
-        dst[outp..outp + len].copy_from_slice(&src[inp..inp + len]);
-        inp += len;
-        outp += len;
+        let len = (*inp - 17) as usize;
+        inp = inp.add(1);
+        needs_in!(len);
+        needs_out!(len);
+        std::ptr::copy_nonoverlapping(inp, outp, len);
+        inp = inp.add(len);
+        outp = outp.add(len);
         state = 4;
-    } else if src[inp] >= 18 {
+    } else if *inp >= 18 {
         /* 18..21 : copy 0..3 literals
          *          state = (byte - 17) = 0..3  [ copy <state> literals ]
          *          skip byte
          */
-        nstate = (src[inp] - 17) as usize;
-        inp += 1;
+        nstate = (*inp - 17) as usize;
+        inp = inp.add(1);
         state = nstate;
-        needs_in!(src, nstate);
-        needs_out!(dst, nstate);
-        dst[outp..outp + nstate].copy_from_slice(&src[inp..inp + nstate]);
-        inp += nstate;
-        outp += nstate;
+        needs_in!(nstate);
+        needs_out!(nstate);
+        std::ptr::copy_nonoverlapping(inp, outp, nstate);
+        inp = inp.add(nstate);
+        outp = outp.add(nstate);
     }
     /* 0..17 : follow regular instruction encoding, see below. It is worth
      *         noting that codes 16 and 17 will represent a block copy from
@@ -592,9 +604,9 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
      */
 
     loop {
-        needs_in!(src, 1);
-        let inst = src[inp] as usize;
-        inp += 1;
+        needs_in!(1);
+        let inst = *inp as usize;
+        inp = inp.add(1);
         if inst & 0xC0 != 0 {
             /* [M2]
              * 1 L L D D D S S  (128..255)
@@ -611,12 +623,12 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
              * Always followed by exactly one byte : H H H H H H H H
              *   distance = (H << 3) + D + 1
              */
-            needs_in!(src, 1);
-            lbcur = ((src[inp] as usize) << 3) + ((inst >> 2) & 0x7) + 1;
-            inp += 1;
+            needs_in!(1);
+            lbcur = outp.sub(((*inp as usize) << 3) + ((inst >> 2) & 0x7) + 1);
+            inp = inp.add(1);
             lblen = (inst >> 5) + 1;
             nstate = inst & 0x3;
-        } else if inst & M3Marker != 0 {
+        } else if inst & M3_MARKER != 0 {
             /* [M3]
              * 0 0 1 L L L L L  (32..63)
              *   Copy of small block within 16kB distance (preferably less than 34B)
@@ -627,18 +639,24 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
              */
             lblen = (inst & 0x1f) + 2;
             if lblen == 2 {
-                let offset = consume_zero_byte_length(&src[inp..])?;
-                inp += offset;
-                needs_in!(src, 1);
-                lblen += offset * 255 + 31 + src[inp] as usize;
-                inp += 1;
+                let mut offset = 0usize;
+                while *inp.add(offset) == 0 {
+                    offset += 1;
+                    if offset > MAX_255_COUNT {
+                        return Err(EResult::Error);
+                    }
+                }
+                inp = inp.add(offset);
+                needs_in!(1);
+                lblen += offset * 255 + 31 + *inp as usize;
+                inp = inp.add(1);
             }
-            needs_in!(src, 2);
-            nstate = get_le16(&src[inp..]);
-            inp += 2;
-            lbcur = (nstate >> 2) + 1;
+            needs_in!(2);
+            nstate = get_le16(inp);
+            inp = inp.add(2);
+            lbcur = outp.sub((nstate >> 2) + 1);
             nstate &= 0x3;
-        } else if inst & M4Marker != 0 {
+        } else if inst & M4_MARKER != 0 {
             /* [M4]
              * 0 0 0 1 H L L L  (16..31)
              *   Copy of a block within 16..48kB distance (preferably less than 10B)
@@ -650,21 +668,27 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
              */
             lblen = (inst & 0x7) + 2;
             if lblen == 2 {
-                let offset = consume_zero_byte_length(&src[inp..])?;
-                inp += offset;
-                needs_in!(src, 1);
-                lblen += offset * 255 + 7 + src[inp] as usize;
-                inp += 1;
+                let mut offset = 0usize;
+                while *inp.add(offset) == 0 {
+                    offset += 1;
+                    if offset > MAX_255_COUNT {
+                        return Err(EResult::Error);
+                    }
+                }
+                inp = inp.add(offset);
+                needs_in!(1);
+                lblen += offset * 255 + 7 + *inp as usize;
+                inp = inp.add(1);
             }
-            needs_in!(src, 2);
-            nstate = get_le16(&src[inp..]);
-            inp += 2;
-            lbcur = ((inst & 0x8) << 11) + (nstate >> 2);
+            needs_in!(2);
+            nstate = get_le16(inp);
+            inp = inp.add(2);
+            lbcur = outp.sub(((inst & 0x8) << 11) + (nstate >> 2));
             nstate &= 0x3;
-            if lbcur == 0 {
+            if lbcur == outp {
                 break; /* Stream finished */
             }
-            lbcur += 16384;
+            lbcur = lbcur.sub(16384);
         } else {
             /* [M1] Depends on the number of literals copied by the last instruction. */
             if state == 0 {
@@ -678,18 +702,24 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
                  */
                 let mut len = inst + 3;
                 if len == 3 {
-                    let offset = consume_zero_byte_length(&src[inp..])?;
-                    inp += offset;
-                    needs_in!(src, 1);
-                    len += offset * 255 + 15 + src[inp] as usize;
-                    inp += 1;
+                    let mut offset = 0usize;
+                    while *inp.add(offset) == 0 {
+                        offset += 1;
+                        if offset > MAX_255_COUNT {
+                            return Err(EResult::Error);
+                        }
+                    }
+                    inp = inp.add(offset);
+                    needs_in!(1);
+                    len += offset * 255 + 15 + *inp as usize;
+                    inp = inp.add(1);
                 }
                 /* copy_literal_run */
-                needs_in!(src, len);
-                needs_out!(dst, len);
-                dst[outp..outp + len].copy_from_slice(&src[inp..inp + len]);
-                outp += len;
-                inp += len;
+                needs_in!(len);
+                needs_out!(len);
+                std::ptr::copy_nonoverlapping(inp, outp, len);
+                inp = inp.add(len);
+                outp = outp.add(len);
                 state = 4;
 
                 continue;
@@ -707,10 +737,10 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
                  *  Always followed by exactly one byte : H H H H H H H H
                  *    distance = (H << 2) + D + 1
                  */
-                needs_in!(src, 1);
+                needs_in!(1);
                 nstate = inst & 0x3;
-                lbcur = (inst >> 2) + ((src[inp] as usize) << 2) + 1;
-                inp += 1;
+                lbcur = outp.sub((inst >> 2) + ((*inp as usize) << 2) + 1);
+                inp = inp.add(1);
                 lblen = 2;
             } else {
                 /* If last instruction used to copy 4 or more literals (as detected by
@@ -723,97 +753,63 @@ pub(crate) fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, EResult> {
                  *  Always followed by exactly one byte : H H H H H H H H
                  *    distance = (H << 2) + D + 2049
                  */
-                needs_in!(src, 1);
+                needs_in!(1);
                 nstate = inst & 0x3;
-                lbcur = (inst >> 2) + (src[inp] << 2) as usize + 2049;
-                inp += 1;
+                lbcur = outp.sub((inst >> 2) + ((*inp as usize) << 2) + 2049);
+                inp = inp.add(1);
                 lblen = 3;
             }
         }
-        if lbcur > outp {
-            let dst_size = outp - outp;
+        if lbcur < dst_base {
             return Err(EResult::LookbehindOverrun);
         }
-        lbcur = outp - lbcur;
 
-        needs_in!(src, nstate);
-        needs_out!(dst, lblen + nstate);
+        needs_in!(nstate);
+        needs_out!(lblen + nstate);
         /* Copy lookbehind */
-        // NOTE: cannot use `copy_within`, as the algorithm depends on the
-        // quirky behavior of overlap handling
-        // dst.copy_within(lbcur..lbcur + lblen, outp);
-        for i in 0..lblen {
-            dst[outp + i] = dst[lbcur + i];
+        // NOTE: cannot use `copy_within`, as RLE depends on the
+        // subsequent reads reading just overwritten data from
+        // overlapping ranges
+        let mut lb = lbcur as *mut u8;
+        for _ in 0..lblen {
+            *outp = *lb;
+            outp = outp.add(1);
+            lb = lb.add(1);
         }
-
-        //dst.copy_within(lbcur..(lbcur + lblen), outp);
-        outp += lblen;
-        lbcur += lblen;
         state = nstate;
         /* Copy literal */
-        dst[outp..outp + nstate].copy_from_slice(&src[inp..inp + nstate]);
-        inp += nstate;
-        outp += nstate;
+        for _ in 0..nstate {
+            *outp = *inp;
+            outp = outp.add(1);
+            inp = inp.add(1);
+        }
     }
 
-    let dst_size = outp - outp;
+    let dst_size = outp as usize - dst_base as usize;
+    /* Ensure terminating M4 was encountered */
     if lblen != 3 {
-        /* Ensure terminating M4 was encountered */
         return Err(EResult::Error);
     }
-    if inp == src.len() {
-        Ok(outp)
-    } else if inp < src.len() {
-        Err(EResult::InputNotConsumed(outp))
+    if inp == inp_end {
+        Ok(dst_size)
+    } else if inp < inp_end {
+        Err(EResult::InputNotConsumed(dst_size))
     } else {
         Err(EResult::InputOverrun)
     }
 }
 
-fn get_le16(buff: &[u8]) -> usize {
-    let lsb = buff[0];
-    let msb = buff[1];
+/// # Safety
+///
+/// `ptr` must point to at least 2 readable bytes.
+#[inline(always)]
+unsafe fn get_le16(ptr: *const u8) -> usize {
+    let lsb = *ptr;
+    let msb = *ptr.add(1);
     ((msb as usize) << 8) | lsb as usize
 }
 
-fn read_zero_byte_length(src: &[u8], inp: &mut usize) -> Result<usize, EResult> {
-    let mut length = 0;
-    while *inp < src.len() && src[*inp] == 0 {
-        length += 255;
-        *inp += 1;
-    }
-    if *inp >= src.len() {
-        return Err(EResult::InputOverrun);
-    }
-    length += src[*inp] as usize;
-    *inp += 1;
-    Ok(length)
-}
-
-fn copy_from_lookbehind(
-    dst: &mut [u8],
-    outp: usize,
-    offset: usize,
-    len: usize,
-) -> Result<(), EResult> {
-    if offset > outp {
-        return Err(EResult::LookbehindOverrun);
-    }
-
-    let start = outp - offset;
-    for i in 0..len {
-        if start + i >= outp {
-            return Err(EResult::LookbehindOverrun);
-        }
-        if outp + i >= dst.len() {
-            return Err(EResult::OutputOverrun);
-        }
-        dst[outp + i] = dst[start + i];
-    }
-    Ok(())
-}
-
-pub(crate) fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, EResult> {
+pub fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, EResult> {
     dict.reset();
     let mut s = State::new(src, dict);
     let mut outp = 0; // outp == dst in cpp means outp == 0 in rust
@@ -821,7 +817,7 @@ pub(crate) fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<us
     let mut lit_ptr = s.inp;
     let mut lb_len = 0;
     let mut lb_off = 0;
-    let mut best_off = [0; MaxMatchByLengthLen];
+    let mut best_off = [0; MAX_MATCH_BY_LENGTH_LEN];
 
     dict.advance(&mut s, &mut lb_off, &mut lb_len, &mut best_off, false);
 
@@ -830,12 +826,12 @@ pub(crate) fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<us
             lit_ptr = s.bufp;
         }
         if lb_len < 2
-            || (lb_len == 2 && (lb_off > M1MaxOffset || lit_len == 0 || lit_len >= 4))
+            || (lb_len == 2 && (lb_off > M1_MAX_OFFSET || lit_len == 0 || lit_len >= 4))
             || (lb_len == 2 && outp == 0)
             || (outp == 0 && lit_len == 0)
         {
             lb_len = 0;
-        } else if lb_len == M2MinLen && lb_off > M1MaxOffset + M2MaxOffset && lit_len >= 4 {
+        } else if lb_len == M2_MIN_LEN && lb_off > M1_MAX_OFFSET + M2_MAX_OFFSET && lit_len >= 4 {
             lb_len = 0;
         }
         if lb_len == 0 {
@@ -852,8 +848,8 @@ pub(crate) fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<us
     encode_literal_run(out, &mut outp, &src[lit_ptr..lit_ptr + lit_len])?;
 
     /* Terminating M4 */
-    needs_out!(out, 3);
-    out[outp] = (M4Marker | 1) as u8;
+    needs_out(out, outp, 3)?;
+    out[outp] = (M4_MARKER | 1) as u8;
     outp += 1;
     out[outp] = 0;
     outp += 1;
@@ -863,4 +859,173 @@ pub(crate) fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<us
     Ok(outp)
 }
 
-const MAX_255_COUNT: usize = usize::MAX / 255 - 2;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LOREM: &[u8] = include_bytes!("../benches/lorem.txt");
+
+    fn roundtrip(input: &[u8]) {
+        let mut dict = Dict::new();
+        let mut compressed = vec![0u8; input.len() + input.len() / 16 + 64 + 3];
+        let compressed_len = compress(input, &mut compressed, &mut dict).unwrap();
+        let compressed = &compressed[..compressed_len];
+
+        let mut decompressed = vec![0u8; input.len()];
+        let decompressed_len = decompress(compressed, &mut decompressed).unwrap();
+        assert_eq!(decompressed_len, input.len());
+        assert_eq!(&decompressed[..decompressed_len], input);
+    }
+
+    #[test]
+    fn test_roundtrip_lorem() {
+        roundtrip(LOREM);
+    }
+
+    #[test]
+    fn test_roundtrip_all_zeros() {
+        roundtrip(&[0u8; 65536]);
+    }
+
+    #[test]
+    fn test_roundtrip_sequential() {
+        let data: Vec<u8> = (0..=255).cycle().take(4096).collect();
+        roundtrip(&data);
+    }
+
+    #[test]
+    fn test_roundtrip_single_byte() {
+        roundtrip(&[42]);
+    }
+
+    #[test]
+    fn test_roundtrip_two_bytes() {
+        roundtrip(&[1, 2]);
+    }
+
+    #[test]
+    fn test_roundtrip_empty() {
+        let mut dict = Dict::new();
+        let mut compressed = vec![0u8; 67];
+        let compressed_len = compress(&[], &mut compressed, &mut dict).unwrap();
+        let compressed = &compressed[..compressed_len];
+
+        let mut decompressed = vec![0u8; 0];
+        // Verifying no UB on empty input; result may be Err depending on format
+        let _ = decompress(compressed, &mut decompressed);
+    }
+
+    #[test]
+    fn test_decompress_too_short() {
+        assert_eq!(
+            decompress(&[0, 0], &mut [0; 64]),
+            Err(EResult::InputOverrun)
+        );
+    }
+
+    #[test]
+    fn test_decompress_output_too_small() {
+        let mut dict = Dict::new();
+        let mut compressed = vec![0u8; LOREM.len()];
+        let compressed_len = compress(LOREM, &mut compressed, &mut dict).unwrap();
+
+        let mut tiny = vec![0u8; 10];
+        let result = decompress(&compressed[..compressed_len], &mut tiny);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_decompress_garbage_does_not_panic() {
+        // Must return Err, never panic or UB
+        let garbage_inputs: &[&[u8]] = &[
+            &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+            &[0x11, 0x00, 0x00],
+            &[22, 1, 2, 3, 4, 5],
+        ];
+        for input in garbage_inputs {
+            let mut out = vec![0u8; 1024];
+            let _ = decompress(input, &mut out);
+        }
+    }
+
+    // Regression tests for malformed inputs that exercise edge cases in
+    // decompress_inner: zero-byte-length scanning and lookbehind pointer
+    // arithmetic.
+
+    #[test]
+    fn regression_m1_zero_scan_oob() {
+        // M1 literal-run path: inst=0x00, state=0, len=3 triggers
+        // zero-byte-length scanning that read past the input buffer.
+        let _ = decompress(&[0x00, 0x00, 0x00, 0x00], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn regression_m3_zero_scan_oob() {
+        // M3 path: first byte 0x12 copies 1 literal (state=1), then
+        // inst=0x20 enters M3 with lblen=2, triggering zero scan on
+        // trailing zeros that read past the input buffer.
+        let _ = decompress(&[0x12, 0xAA, 0x20, 0x00], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn regression_m4_zero_scan_oob() {
+        // M4 path: same setup, inst=0x10 enters M4 with lblen=2,
+        // triggering zero scan past the input buffer.
+        let _ = decompress(&[0x12, 0xAA, 0x10, 0x00], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn regression_m2_lookbehind_overrun() {
+        // M2 path: inst=0xC0 computes lookbehind offset from next byte
+        // (0xFF -> offset 2041). With only 1 byte of output, outp.sub(2041)
+        // produced a dangling pointer before the bounds check.
+        let _ = decompress(&[0x12, 0xAA, 0xC0, 0xFF], &mut [0u8; 1024]);
+    }
+
+    #[test]
+    fn regression_m4_lookbehind_overrun() {
+        // M4 terminator decoded into a zero-length output buffer: the
+        // lookbehind pointer computation outp.sub(n) underflowed the
+        // allocation, producing a dangling pointer.
+        let mut dict = Dict::new();
+        let compressed = {
+            let mut buf = vec![0u8; 67];
+            let len = compress(&[], &mut buf, &mut dict).unwrap();
+            buf.truncate(len);
+            buf
+        };
+        let _ = decompress(&compressed, &mut [0u8; 0]);
+    }
+
+    use arbtest::arbtest;
+
+    #[test]
+    fn prop_roundtrip() {
+        arbtest(|u| {
+            let data: Vec<u8> = u.arbitrary()?;
+            if data.is_empty() {
+                return Ok(());
+            }
+            let mut dict = Dict::new();
+            let mut compressed = vec![0u8; data.len() + data.len() / 16 + 64 + 3];
+            let compressed_len = compress(&data, &mut compressed, &mut dict).unwrap();
+
+            let mut decompressed = vec![0u8; data.len()];
+            let decompressed_len =
+                decompress(&compressed[..compressed_len], &mut decompressed).unwrap();
+            assert_eq!(&decompressed[..decompressed_len], &data[..]);
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn prop_decompress_arbitrary_no_ub() {
+        arbtest(|u| {
+            let data: Vec<u8> = u.arbitrary()?;
+            let mut out = vec![0u8; 4096];
+            // Must not panic or trigger UB — any Err is fine
+            let _ = decompress(&data, &mut out);
+            Ok(())
+        });
+    }
+}

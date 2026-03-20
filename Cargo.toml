@@ -39,6 +39,8 @@ lzokay-sys = { path = "./lzokay-sys", optional = true }
 pyo3 = "0.25.0"
 
 [dev-dependencies]
+arbtest = "0.3"
+arbitrary = "1"
 criterion = "0.7"
 
 [[bench]]
