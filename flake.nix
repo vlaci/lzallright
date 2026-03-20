@@ -133,6 +133,7 @@
               python3Packages.uvVenvShellHook
               python3Packages.maturinImportShellHook
               python3Packages.autoPatchelfVenvShellHook
+              gdb
               lzo
             ];
             uvExtraArgs = "--all-groups";

@@ -106,7 +106,7 @@ fn _lzallright(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(miri)))]
 mod test {
     use pyo3::types::PyType;
 
