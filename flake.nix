@@ -12,6 +12,11 @@
       flake = false;
     };
 
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     crane-maturin.url = "github:vlaci/crane-maturin";
     shell-hooks.url = "github:vlaci/nix-shell-hooks";
   };
@@ -24,6 +29,7 @@
       crane-maturin,
       advisory-db,
       shell-hooks,
+      rust-overlay,
       ...
     }:
     let
@@ -40,6 +46,7 @@
           inherit system;
           overlays = [
             self.overlays.default
+            rust-overlay.overlays.default
             shell-hooks.overlays.default
           ];
         }
@@ -106,15 +113,27 @@
           default = pkgs.mkShell {
             packages = with pkgs; [
               cargo-msrv
-              cargo
-              clippy
+              cargo-fuzz
+              (rust-bin.selectLatestNightlyWith (
+                toolchain:
+                toolchain.default.override {
+                  extensions = [
+                    "cargo"
+                    "clippy"
+                    "miri"
+                    "rust-src"
+                    "rustc"
+                    "rustfmt"
+                  ];
+                }
+              ))
               rust-analyzer
-              rustc
-              rustfmt
               gnuplot
               python3Packages.uvVenvShellHook
               python3Packages.maturinImportShellHook
               python3Packages.autoPatchelfVenvShellHook
+              gdb
+              lzo
             ];
           };
         }

@@ -1,5 +1,4 @@
 #![allow(ambiguous_associated_items)] // EResult::Error
-use cxx::UniquePtr;
 use pyo3::{
     create_exception,
     ffi::PyBytes_FromObject,
@@ -7,6 +6,7 @@ use pyo3::{
     types::{PyByteArray, PyBytes},
 };
 
+use crate::lzokay;
 use crate::python::Buffer;
 
 #[pyclass(eq, eq_int, module = "lzallright._lzallright")]
@@ -19,15 +19,14 @@ pub enum EResult {
     InputNotConsumed,
 }
 
-impl From<lzokay_sys::EResult> for EResult {
-    fn from(err: lzokay_sys::EResult) -> Self {
+impl From<&lzokay::Error> for EResult {
+    fn from(err: &lzokay::Error) -> Self {
         match err {
-            lzokay_sys::EResult::LookbehindOverrun => EResult::LookbehindOverrun,
-            lzokay_sys::EResult::OutputOverrun => EResult::OutputOverrun,
-            lzokay_sys::EResult::InputOverrun => EResult::InputOverrun,
-            lzokay_sys::EResult::Error => EResult::Error,
-            lzokay_sys::EResult::InputNotConsumed => EResult::InputNotConsumed,
-            _ => unreachable!(),
+            lzokay::Error::LookbehindOverrun => EResult::LookbehindOverrun,
+            lzokay::Error::OutputOverrun => EResult::OutputOverrun,
+            lzokay::Error::InputOverrun => EResult::InputOverrun,
+            lzokay::Error::InputNotConsumed(_) => EResult::InputNotConsumed,
+            lzokay::Error::Error => EResult::Error,
         }
     }
 }
@@ -41,7 +40,7 @@ create_exception!(lzallright._lzallright, InputNotConsumed, LZOError);
 
 #[pyclass(unsendable, module = "lzallright._lzallright")]
 pub struct LZOCompressor {
-    dict: UniquePtr<lzokay_sys::DictBase>,
+    dict: lzokay::Dict,
 }
 
 #[pymethods]
@@ -49,35 +48,24 @@ impl LZOCompressor {
     #[new]
     pub fn new() -> Self {
         Self {
-            dict: lzokay_sys::new_dict(),
+            dict: lzokay::Dict::new(),
         }
     }
 
     pub fn compress<'a>(&mut self, py: Python<'a>, data: Buffer) -> PyResult<Bound<'a, PyBytes>> {
         let max_size = data.len() + data.len() / 16 + 64 + 3;
-        let mut result = lzokay_sys::EResult::Error;
         let mut compressed_size = 0usize;
         let dst = PyByteArray::new_with(py, max_size, |dst| {
-            result = py.allow_threads(|| unsafe {
-                lzokay_sys::compress(
-                    data.as_ptr(),
-                    data.len(),
-                    dst.as_mut_ptr(),
-                    dst.len(),
-                    &mut compressed_size,
-                    self.dict.pin_mut(),
-                )
-            });
+            compressed_size = py
+                .allow_threads(|| lzokay::compress(&data, dst, &mut self.dict))
+                .map_err(|e| LZOError::new_err(EResult::from(&e)))?;
             Ok(())
         })?;
         dst.resize(compressed_size)?;
-        match result {
-            lzokay_sys::EResult::Success => Ok(unsafe {
-                Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr()))
-                    .downcast_into_unchecked()
-            }),
-            e => Err(LZOError::new_err(EResult::from(e))),
-        }
+        // SAFETY: dst is a valid PyByteArray; PyBytes_FromObject returns a new reference.
+        Ok(unsafe {
+            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
+        })
     }
 
     #[staticmethod]
@@ -87,45 +75,39 @@ impl LZOCompressor {
         data: Buffer,
         output_size_hint: Option<usize>,
     ) -> PyResult<Bound<'a, PyBytes>> {
-        let size = if let Some(size) = output_size_hint {
-            size
-        } else {
-            2 * data.len()
-        };
-        let mut decompressed_size = 0usize;
-        let mut result;
+        let size = output_size_hint.unwrap_or(2 * data.len());
         let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
-        loop {
+        let result = loop {
             let dst_bytes = unsafe { dst.as_bytes_mut() };
-            result = py.allow_threads(|| unsafe {
-                lzokay_sys::decompress(
-                    data.as_ptr(),
-                    data.len(),
-                    dst_bytes.as_mut_ptr(),
-                    dst_bytes.len(),
-                    &mut decompressed_size,
-                )
-            });
-            if result == lzokay_sys::EResult::OutputOverrun {
-                dst.resize(2 * dst.len())?;
-                continue;
+            match py.allow_threads(|| lzokay::decompress(&data, dst_bytes)) {
+                Err(lzokay::Error::OutputOverrun) => {
+                    dst.resize(2 * dst.len())?;
+                    continue;
+                }
+                result => break result,
             }
-            break;
-        }
+        };
+
+        let decompressed_size = match &result {
+            Ok(size) => *size,
+            Err(lzokay::Error::InputNotConsumed(size)) => *size,
+            Err(e) => return Err(LZOError::new_err(EResult::from(e))),
+        };
         dst.resize(decompressed_size)?;
 
+        // SAFETY: dst is a valid PyByteArray; PyBytes_FromObject returns a new reference.
         let rv = unsafe {
             Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
         };
         match result {
-            lzokay_sys::EResult::Success => Ok(rv),
-            lzokay_sys::EResult::InputNotConsumed => {
+            Ok(_) => Ok(rv),
+            Err(lzokay::Error::InputNotConsumed(_)) => {
                 Err(InputNotConsumed::new_err::<(_, Py<PyBytes>)>((
                     EResult::InputNotConsumed,
                     rv.into(),
                 )))
             }
-            e => Err(LZOError::new_err(EResult::from(e))),
+            Err(_) => unreachable!(),
         }
     }
 }
