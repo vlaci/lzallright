@@ -124,7 +124,7 @@ jobs:
           sccache: ${{ matrix.target == 'musllinux_1_1' }}
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-${{ matrix.target }}-${{ matrix.tag }}
           path: dist
@@ -172,7 +172,7 @@ jobs:
           args: --release --out dist -i python3.13t
           sccache: "true"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-windows-${{ matrix.target }}
           path: dist
@@ -218,7 +218,7 @@ jobs:
           args: --release --out dist -i python3.13t
           sccache: "true"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -239,7 +239,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist
@@ -250,7 +250,7 @@ jobs:
     if: "startsWith(github.ref, 'refs/tags/')"
     needs: [Nix, Linux, Windows, MacOS, sdist]
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           merge-multiple: true
       - name: Publish to PyPI
