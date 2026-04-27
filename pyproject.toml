@@ -24,7 +24,7 @@ dev = [
     "towncrier>=24.8.0,<25.0.0"
 ]
 test = [
-    "pytest>=8.3.3,<9.0.0"
+    "pytest>=9.0.3,<9.1.0"
 ]
 docs = [
     "mkdocs>=1.4.3",
