@@ -410,7 +410,7 @@ fn find_better_match(
 
 macro_rules! needs_out {
     ($outp:expr, $outp_end:ident, $dst:expr, $dst_size:expr, $count:expr) => {{
-        if $outp_end.offset_from($outp.add($count)) < 0 {
+        if $count > $outp_end.offset_from($outp) as usize {
             *$dst_size = $outp.offset_from($dst) as usize;
             return Err(Error::new(ErrorKind::OutputOverrun, *$dst_size));
         }
@@ -565,8 +565,8 @@ unsafe fn decompress_inner(
 
     macro_rules! needs_in {
         ($count:expr) => {
-            if inp.add($count) > inp_end {
-                dst_size = outp as usize - dst as usize;
+            if $count > inp_end.offset_from(inp) as usize {
+                dst_size = outp.offset_from(dst) as usize;
                 return Err(Error::new(ErrorKind::InputOverrun, dst_size));
             }
         };
@@ -574,8 +574,8 @@ unsafe fn decompress_inner(
 
     macro_rules! needs_out {
         ($count:expr) => {{
-            if outp.add($count) > outp_end {
-                dst_size = outp as usize - dst as usize;
+            if $count > outp_end.offset_from(outp) as usize {
+                dst_size = outp.offset_from(dst) as usize;
                 return Err(Error::new(ErrorKind::OutputOverrun, dst_size));
             }
         }};
@@ -767,8 +767,8 @@ unsafe fn decompress_inner(
                 lblen = 3;
             }
         }
-        if lbdist > (outp as usize) - (dst as usize) {
-            let dst_size = outp as usize - dst as usize;
+        if lbdist > outp.offset_from(dst) as usize {
+            let dst_size = outp.offset_from(dst) as usize;
             return Err(Error::new(ErrorKind::LookbehindOverrun, dst_size));
         }
         lbcur = outp.wrapping_sub(lbdist);
@@ -794,7 +794,7 @@ unsafe fn decompress_inner(
         }
     }
 
-    let dst_size = outp as usize - dst as usize;
+    let dst_size = outp.offset_from(dst) as usize;
     if lblen != 3 {
         /* Ensure terminating M4 was encountered */
         return Err(Error::new(ErrorKind::Error, dst_size));
@@ -894,20 +894,63 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_decompress_garbage_does_not_panic() {
-        let garbage_inputs: &[&[u8]] = &[
-            &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
-            &[0x00, 0x00, 0x00, 0x00, 0x00],
-            &[0x00, 0x00, 0x00, 0x00],
-            &[0x11, 0x00, 0x00],
-            &[22, 1, 2, 3, 4, 5],
-            &[0x12, 0xAA, 0x20, 0x00],
-            &[0x12, 0xAA, 0x10, 0x00],
-            &[0x12, 0xAA, 0xC0, 0xFF],
-        ];
-        for input in garbage_inputs {
-            let mut out = vec![0u8; 1024];
-            let _ = decompress(input, &mut out);
+    fn truncated_input_returns_input_overrun() {
+        // Opcode 22 declares five literal bytes; only two follow.
+        let err = decompress(&[22, 1, 2], &mut [0; 5]).unwrap_err();
+
+        assert_eq!(err.kind(), &ErrorKind::InputOverrun);
+        assert_eq!(err.dst_size(), 0);
+    }
+
+    #[test]
+    fn literal_respects_output_capacity() {
+        // Five literal bytes followed by the terminating M4 marker.
+        let input = [22, 1, 2, 3, 4, 5, 17, 0, 0];
+
+        for capacity in 0..5 {
+            let mut output = vec![0; capacity];
+            let err = decompress(&input, &mut output).unwrap_err();
+
+            assert_eq!(err.kind(), &ErrorKind::OutputOverrun);
+            assert_eq!(err.dst_size(), 0);
         }
+
+        let mut output = [0; 5];
+        assert_eq!(decompress(&input, &mut output).unwrap(), 5);
+        assert_eq!(output, [1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn compressor_respects_output_capacity() {
+        let mut dict = Dict::new();
+
+        // Respectively fails while writing the literal header, literal, and
+        // terminating M4 marker.
+        for capacity in 0..=2 {
+            let mut output = vec![0; capacity];
+            let err = compress(b"x", &mut output, &mut dict).unwrap_err();
+
+            assert_eq!(err.kind(), &ErrorKind::OutputOverrun);
+            assert_eq!(err.dst_size(), capacity);
+        }
+    }
+
+    #[test]
+    fn invalid_lookbehind_reports_produced_size() {
+        let mut output = [0; 8];
+        let err = decompress(&[0x12, 0xaa, 0xc0, 0xff], &mut output).unwrap_err();
+
+        assert_eq!(err.kind(), &ErrorKind::LookbehindOverrun);
+        assert_eq!(err.dst_size(), 1);
+    }
+
+    #[test]
+    fn valid_overlapping_lookbehind_is_copied() {
+        // Five literals, then copy three bytes from distance one, then terminate.
+        let input = [22, b'a', b'b', b'c', b'd', b'e', 0x40, 0, 17, 0, 0];
+        let mut output = [0; 8];
+
+        assert_eq!(decompress(&input, &mut output).unwrap(), 8);
+        assert_eq!(&output, b"abcdeeee");
     }
 }
