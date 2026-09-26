@@ -95,11 +95,33 @@
       packages = forAllSystems (
         system:
         let
-          inherit (nixpkgsFor.${system}.python3Packages) lzallright;
+          pkgs = nixpkgsFor.${system};
+          inherit (pkgs.python3Packages) lzallright;
         in
         {
           inherit lzallright;
           default = lzallright;
+          bench-corpus = pkgs.callPackage ./benches/corpus { };
+        }
+      );
+
+      apps = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgsFor.${system};
+          corpus = self.packages.${system}.bench-corpus;
+        in
+        {
+          update-bench-corpus = {
+            type = "app";
+            meta.description = "Regenerate benches/corpus from pinned upstream sources";
+            program = pkgs.lib.getExe (
+              pkgs.writeShellApplication {
+                name = "update-bench-corpus";
+                text = "install -m 0644 -t benches/corpus ${corpus}/*";
+              }
+            );
+          };
         }
       );
 
