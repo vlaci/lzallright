@@ -57,7 +57,8 @@
         let
           cmLib = crane-maturin.mkLib crane final;
 
-          assetFilter = path: _type: builtins.match ".*(benches|benches/.*\.txt)$" path != null;
+          assetFilter =
+            path: _type: builtins.match ".*/benches(/corpus)?(/[^/]+\\.(txt|c|json|log))?$" path != null;
           cppFilter = path: _type: builtins.match ".*(h|c)pp$" path != null;
           pyFilter =
             path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
@@ -102,6 +103,20 @@
           inherit lzallright;
           default = lzallright;
           bench-corpus = pkgs.callPackage ./benches/corpus { };
+
+          silesia =
+            pkgs.runCommand "silesia"
+              {
+                nativeBuildInputs = [ pkgs.unzip ];
+                src = pkgs.fetchurl {
+                  url = "https://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip";
+                  sha256 = "0626e25f45c0ffb5dc801f13b7c82a3b75743ba07e3a71835a41e3d9f63c77af";
+                };
+              }
+              ''
+                mkdir -p $out
+                unzip -q $src -d $out/silesia
+              '';
         }
       );
 
