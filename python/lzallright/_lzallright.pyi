@@ -7,7 +7,7 @@ class LZOCompressor:
     reducing allocations.
 
     Thread safety:
-        It is not allowed to pass instances of this class between threads.
+        Instance and static methods are thread-safe.
     """
 
     def compress(self, data: Buffer) -> bytes:

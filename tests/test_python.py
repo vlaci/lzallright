@@ -1,6 +1,8 @@
 import array
 import mmap
 import os
+import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -46,6 +48,10 @@ def roundtrip(data, **kwargs):
     return lzallright.LZOCompressor.decompress(comp, **kwargs)
 
 
+def test_output_buffer_grows_from_zero_hint(lorem):
+    assert roundtrip(lorem, output_size_hint=0) == lorem
+
+
 @pytest.mark.parametrize(
     "data",
     [
@@ -65,10 +71,36 @@ def test_mmap():
         assert roundtrip(m) == b"x" * 4096
 
 
-@pytest.mark.xfail(strict=True, reason="buffers are not yet validated")
 def test_non_contiguous_buffer_is_rejected():
     with pytest.raises(BufferError):
         lzallright.LZOCompressor().compress(memoryview(b"abcdefgh" * 10)[::2])
+
+
+@pytest.mark.skipif(
+    not getattr(sys, "_is_gil_enabled", lambda: True)(),
+    reason="copying races with writers without the GIL",
+)
+def test_readonly_view_of_mutable_buffer_is_snapshotted():
+    # A read-only view does not make the exporter immutable: the bytearray is
+    # rewritten while the GIL is released, so a borrowed input would mix both.
+    a, b = os.urandom(1 << 18), os.urandom(1 << 18)
+    buf = bytearray(a)
+    view = memoryview(buf).toreadonly()
+    stop = threading.Event()
+
+    def flip():
+        while not stop.is_set():
+            buf[:] = b
+            buf[:] = a
+
+    t = threading.Thread(target=flip)
+    t.start()
+    try:
+        for _ in range(20):
+            assert roundtrip(view) in (a, b)
+    finally:
+        stop.set()
+        t.join()
 
 
 def test_truncated_input():
@@ -76,3 +108,13 @@ def test_truncated_input():
         lzallright.LZOCompressor.decompress(b"\x11\x00")
 
     assert exc.value.args == (lzallright.EResult.InputOverrun,)
+
+
+def test_shared_compressor_across_threads():
+    c = lzallright.LZOCompressor()
+    data = [bytes([i]) * 50_000 + os.urandom(50_000) for i in range(16)]
+
+    with ThreadPoolExecutor(8) as ex:
+        outs = list(ex.map(c.compress, data))
+
+    assert outs == [lzallright.LZOCompressor().compress(d) for d in data]

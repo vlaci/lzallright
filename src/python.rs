@@ -1,43 +1,72 @@
-use pyo3::{exceptions::PyTypeError, ffi, prelude::*, types::PyBytes};
+use pyo3::{
+    buffer::PyBuffer,
+    exceptions::{PyBufferError, PyMemoryError},
+    prelude::*,
+    pybacked::PyBackedBytes,
+    types::{PyBytes, PyMemoryView},
+};
 
-use std::ops::Deref;
+/// Input bytes, safe to read while the GIL is released. Only `bytes` is
+/// borrowed: it is the one exporter whose memory cannot change. Every other
+/// buffer is copied, read-only views included, since another view of the same
+/// exporter (e.g. the underlying bytearray) can still be written.
+pub enum Buffer {
+    Bytes(PyBackedBytes),
+    Owned(Vec<u8>),
+}
 
-pub struct Buffer<'py>(Bound<'py, PyBytes>);
-
-impl<'py> Buffer<'py> {
-    fn new(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        // PyBytes_FromObject also accepts iterables of ints; only take buffers.
-        if unsafe { ffi::PyObject_CheckBuffer(ob.as_ptr()) } == 0 {
-            return Err(PyTypeError::new_err(format!(
-                "a bytes-like object is required, not {}",
-                ob.get_type()
-            )));
+impl Buffer {
+    fn new(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        // Exact type: a subclass may export a different buffer via `__buffer__`.
+        if let Ok(bytes) = ob.cast_exact::<PyBytes>() {
+            return Ok(Self::Bytes(bytes.clone().into()));
         }
-        // SAFETY: `ob` is a valid object; PyBytes_FromObject returns a new reference
-        // to a `bytes` object, or NULL with an exception set.
-        unsafe { Bound::from_owned_ptr_or_err(ob.py(), ffi::PyBytes_FromObject(ob.as_ptr())) }
-            .map(|b| Buffer(unsafe { b.cast_into_unchecked() }))
+        let buf = match PyBuffer::<u8>::get(ob) {
+            Ok(buf) => buf,
+            // Non-byte item formats (e.g. array('i')): view the raw bytes.
+            Err(_) => PyBuffer::<u8>::get(&PyMemoryView::from(ob)?.call_method1("cast", ("B",))?)?,
+        };
+        if !buf.is_c_contiguous() {
+            return Err(PyBufferError::new_err("buffer is not C-contiguous"));
+        }
+        Ok(Self::Owned(buf.to_vec(ob.py())?))
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Bytes(b) => b,
+            Self::Owned(v) => v,
+        }
     }
 }
 
-impl Deref for Buffer<'_> {
-    type Target = [u8];
-
-    fn deref(&self) -> &[u8] {
-        self.0.as_bytes()
+impl<'a> From<&'a [u8]> for Buffer {
+    fn from(data: &'a [u8]) -> Self {
+        Buffer::Owned(data.into())
     }
 }
 
-impl<'py> From<Bound<'py, PyBytes>> for Buffer<'py> {
-    fn from(data: Bound<'py, PyBytes>) -> Self {
-        Buffer(data)
-    }
-}
-
-impl<'a, 'py> FromPyObject<'a, 'py> for Buffer<'py> {
+impl<'a, 'py> FromPyObject<'a, 'py> for Buffer {
     type Error = PyErr;
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         Buffer::new(&ob)
+    }
+}
+
+/// Allocate zero-filled buffer.
+pub fn zeroed(len: usize) -> PyResult<Vec<u8>> {
+    if len == 0 {
+        return Ok(Vec::new());
+    }
+    let layout = std::alloc::Layout::array::<u8>(len).map_err(|_| PyMemoryError::new_err(()))?;
+    // SAFETY: non-zero size; on success the allocation is `len` initialized
+    // (zeroed) bytes from the global allocator, as `Vec` requires.
+    unsafe {
+        let ptr = std::alloc::alloc_zeroed(layout);
+        if ptr.is_null() {
+            return Err(PyMemoryError::new_err(()));
+        }
+        Ok(Vec::from_raw_parts(ptr, len, len))
     }
 }
