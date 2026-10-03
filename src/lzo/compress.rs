@@ -46,6 +46,10 @@ impl<'a> Writer<'a> {
     /// merged into the previous instruction.
     fn encode_literal_run(&mut self, lit: &[u8]) -> Result<(), Error> {
         let lit_len = lit.len();
+        if lit_len == 0 {
+            // Mustn't encode anything if there is nothing to write
+            return Ok(());
+        }
         if self.pos == 0 && lit_len <= 238 {
             self.reserve(1)?;
             self.write_byte(17 + lit_len as u8);

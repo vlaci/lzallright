@@ -92,6 +92,7 @@ inputs! {
     corpus_concat => [ALICE, NASA, SQLITE, WIKIDATA].concat(),
     zeros_1m => vec![0; 1 << 20],
     random_300k => noise(300_000, 256),
+    low_entropy_0 => noise(0, 4),
     low_entropy_1 => noise(1, 4),
     low_entropy_2 => noise(2, 4),
     low_entropy_3 => noise(3, 4),
@@ -129,6 +130,12 @@ fn long_literal(n: usize) -> Vec<u8> {
 }
 
 const EOS: [u8; 3] = [0x11, 0, 0];
+
+#[test]
+fn empty_stream_is_bare_terminator() {
+    assert_eq!(lzo_compress(&[], &mut Dict::new()), EOS);
+    assert_eq!(decode(&EOS), Ok(vec![]));
+}
 
 #[test]
 fn first_byte_18_to_21_copies_up_to_four_literals() {

@@ -48,6 +48,10 @@ def roundtrip(data, **kwargs):
     return lzallright.LZOCompressor.decompress(comp, **kwargs)
 
 
+def test_roundtrip_empty():
+    assert roundtrip(b"") == b""
+
+
 def test_output_buffer_grows_from_zero_hint(lorem):
     assert roundtrip(lorem, output_size_hint=0) == lorem
 
