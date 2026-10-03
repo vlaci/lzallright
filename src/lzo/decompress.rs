@@ -27,24 +27,6 @@ impl<'a> Decoder<'a> {
     }
 
     #[inline]
-    fn needs_in(&self, count: usize) -> Result<(), Error> {
-        if count > self.src.len() - self.inp {
-            Err(self.error(ErrorKind::InputOverrun))
-        } else {
-            Ok(())
-        }
-    }
-
-    #[inline]
-    fn needs_out(&self, count: usize) -> Result<(), Error> {
-        if count > self.dst.len() - self.outp {
-            Err(self.error(ErrorKind::OutputOverrun))
-        } else {
-            Ok(())
-        }
-    }
-
-    #[inline]
     fn read_byte(&mut self) -> Result<usize, Error> {
         let byte = *self
             .src
@@ -57,10 +39,11 @@ impl<'a> Decoder<'a> {
     /// Reads the next two input bytes as a little-endian integer.
     #[inline]
     fn read_le16(&mut self) -> Result<usize, Error> {
-        self.needs_in(2)?;
-        let v = u16::from_le_bytes([self.src[self.inp], self.src[self.inp + 1]]);
+        let Some(&[lo, hi]) = self.src.get(self.inp..self.inp + 2) else {
+            return Err(self.error(ErrorKind::InputOverrun));
+        };
         self.inp += 2;
-        Ok(usize::from(v))
+        Ok(usize::from(u16::from_le_bytes([lo, hi])))
     }
 
     /// Returns `base + <count of zero bytes> * 255 + byte`.
@@ -77,9 +60,13 @@ impl<'a> Decoder<'a> {
     /// Copies `len` bytes from the input to the output.
     #[inline]
     fn copy_literal(&mut self, len: usize) -> Result<(), Error> {
-        self.needs_in(len)?;
-        self.needs_out(len)?;
-        self.dst[self.outp..self.outp + len].copy_from_slice(&self.src[self.inp..self.inp + len]);
+        let Some(lit) = self.src.get(self.inp..self.inp + len) else {
+            return Err(self.error(ErrorKind::InputOverrun));
+        };
+        let Some(out) = self.dst.get_mut(self.outp..self.outp + len) else {
+            return Err(Error::new(ErrorKind::OutputOverrun, self.outp));
+        };
+        out.copy_from_slice(lit);
         self.inp += len;
         self.outp += len;
         Ok(())
@@ -88,43 +75,87 @@ impl<'a> Decoder<'a> {
     /// Copies `len` bytes from `dist` bytes behind the output position, then
     /// `literal_count` literals.
     ///
-    /// `literal_count` has to be at most 3
+    /// `len` has to be at least 2 and `literal_count` at most 3.
     #[inline]
     fn copy_match(&mut self, dist: usize, len: usize, literal_count: usize) -> Result<(), Error> {
+        debug_assert!(len >= 2 && literal_count <= 3);
         if dist > self.outp {
             return Err(self.error(ErrorKind::LookbehindOverrun));
         }
-        self.needs_in(literal_count)?;
-        self.needs_out(len + literal_count)?;
+        let Some(lit) = self.src.get(self.inp..self.inp + literal_count) else {
+            return Err(self.error(ErrorKind::InputOverrun));
+        };
+        let Some(window) = self
+            .dst
+            .get_mut(self.outp - dist..self.outp + len + literal_count)
+        else {
+            return Err(Error::new(ErrorKind::OutputOverrun, self.outp));
+        };
+        let (window, out) = window.split_at_mut(dist + len);
 
-        // cannot use copy_within as RLE needs byte-wise copy
-        let window = &mut self.dst[self.outp - dist..self.outp + len];
-        let window = Cell::from_mut(window).as_slice_of_cells();
-        if len <= 8 {
-            // PERF: short copy optimization
-            for k in 0..8 {
-                if k < len {
-                    window[dist + k].set(window[k].get());
-                }
-            }
+        if dist >= 8 {
+            // PERF: the farther a match, the wider blocks we can use to copy
+            copy_words(window, dist, len);
         } else {
+            // Has to copy one byte at a time if we are closer than a word due to RLE
+            let window = Cell::from_mut(window).as_slice_of_cells();
             for (d, s) in window[dist..].iter().zip(window) {
                 d.set(s.get());
             }
         }
-        self.outp += len;
 
-        let out = &mut self.dst[self.outp..self.outp + literal_count];
-        let lit = &self.src[self.inp..self.inp + literal_count];
-        // PERF: signal the compiler that literal_count <=3 to perform short copy optimization
-        for k in 0..3 {
-            if k < literal_count {
-                out[k] = lit[k];
-            }
+        // Two overlapping 2-byte copies cover 2 or 3 literals without a
+        // branch on the exact count.
+        if literal_count >= 2 {
+            let tail = literal_count - 2;
+            out[..2].copy_from_slice(&lit[..2]);
+            out[tail..].copy_from_slice(&lit[tail..]);
+        } else if literal_count == 1 {
+            out[0] = lit[0];
         }
         self.inp += literal_count;
-        self.outp += literal_count;
+        self.outp += len + literal_count;
         Ok(())
+    }
+}
+
+/// Copies `window[..len]` to `window[dist..]` in fixed-width blocks no wider
+/// than `dist`, so no block reads a byte an earlier block of the same copy
+/// has yet to write. Requires `dist >= 8`.
+#[inline(always)]
+fn copy_words(window: &mut [u8], dist: usize, len: usize) {
+    debug_assert!(dist >= 8);
+    macro_rules! copy_block {
+        ($n:literal, $at:expr) => {{
+            let at = $at;
+            let block: [u8; $n] = window[at..at + $n].try_into().unwrap();
+            window[dist + at..dist + at + $n].copy_from_slice(&block);
+        }};
+    }
+    macro_rules! copy_blocks {
+        ($n:literal) => {{
+            let mut at = 0;
+            while at + $n <= len {
+                copy_block!($n, at);
+                at += $n;
+            }
+            if at < len {
+                copy_block!($n, len - $n);
+            }
+        }};
+    }
+    if len >= 8 {
+        if dist >= 16 && len >= 16 {
+            copy_blocks!(16);
+        } else {
+            copy_blocks!(8);
+        }
+    } else if len >= 4 {
+        copy_block!(4, 0);
+        copy_block!(4, len - 4);
+    } else {
+        copy_block!(2, 0);
+        copy_block!(2, len - 2);
     }
 }
 
@@ -339,5 +370,41 @@ mod tests {
 
         assert_eq!(decompress(&input, &mut output).unwrap(), 8);
         assert_eq!(&output, b"abcdeeee");
+    }
+
+    #[test]
+    fn copy_match_writes_exactly_len_literals() {
+        // There are possible performance optimizations that would leave garbage at the end of output buffer.
+        // As of now, we don't want to allow that.
+        const GUARD: u8 = 0xA5;
+        let prefix: Vec<u8> = (1..=64).collect();
+        let lits = [0xF1, 0xF2, 0xF3];
+
+        for dist in 1..=40 {
+            for len in 2..=40 {
+                for literal_count in 0..=3 {
+                    let end = prefix.len() + len + literal_count;
+                    let mut dst = vec![GUARD; end + 16];
+                    dst[..prefix.len()].copy_from_slice(&prefix);
+                    let mut decoder = Decoder::new(&lits[..literal_count], &mut dst);
+                    decoder.outp = prefix.len();
+
+                    decoder.copy_match(dist, len, literal_count).unwrap();
+                    assert_eq!((decoder.inp, decoder.outp), (literal_count, end));
+
+                    let mut expected = prefix.clone();
+                    for _ in 0..len {
+                        expected.push(expected[expected.len() - dist]);
+                    }
+                    expected.extend_from_slice(&lits[..literal_count]);
+                    let case = format!("dist {dist}, len {len}, literals {literal_count}");
+                    assert_eq!(dst[..end], expected, "{case}");
+                    assert!(
+                        dst[end..].iter().all(|&b| b == GUARD),
+                        "wrote past output: {case}"
+                    );
+                }
+            }
+        }
     }
 }
