@@ -55,17 +55,18 @@ impl Match3 {
         *c = c.wrapping_sub(1);
     }
 
-    fn advance(&mut self, s: &State, match_pos: &mut usize, match_count: &mut usize, b: &[u8]) {
+    fn advance(&mut self, s: &State, b: &[u8]) -> (usize, usize) {
         let key = Self::make_key(&b[s.wind_b..]);
         let head = self.get_head(key);
-        *match_pos = head as _;
+        let match_pos = head;
         self.chain[s.wind_b] = head;
-        *match_count = self.chain_sz[key] as _;
+        let mut match_count = self.chain_sz[key];
         self.chain_sz[key] += 1;
-        if *match_count > MAX_MATCH_LEN {
-            *match_count = MAX_MATCH_LEN
+        if match_count > MAX_MATCH_LEN as u16 {
+            match_count = MAX_MATCH_LEN as u16
         }
         self.head[key] = s.wind_b as u16;
+        (match_pos as usize, match_count as usize)
     }
 
     fn skip_advance(&mut self, s: &State, b: &[u8]) {
@@ -112,26 +113,12 @@ impl Match2 {
         }
     }
 
-    fn search(
-        &self,
-        s: &State,
-        lb_pos: &mut usize,
-        lb_len: &mut usize,
-        best_pos: &mut [usize; MaxMatchByLengthLen],
-        b: &[u8],
-    ) -> bool {
+    fn search(&self, s: &State, b: &[u8]) -> Option<usize> {
         let pos = self.head[Self::make_key(&b[s.wind_b..])];
         if pos == u16::MAX {
-            return false;
+            return None;
         }
-        if best_pos[2] == 0 {
-            best_pos[2] = pos as usize + 1;
-        }
-        if *lb_len < 2 {
-            *lb_len = 2;
-            *lb_pos = pos as usize;
-        }
-        true
+        Some(usize::from(pos))
     }
 
     fn reset(&mut self) {
@@ -221,6 +208,52 @@ impl State {
     }
 }
 
+/// Best lookback match found at the current position.
+struct LookbackMatch {
+    len: usize,
+    off: usize,
+    best_off: [usize; MaxMatchByLengthLen],
+}
+
+impl LookbackMatch {
+    fn new() -> Self {
+        Self {
+            len: 0,
+            off: 0,
+            best_off: [0; MaxMatchByLengthLen],
+        }
+    }
+
+    fn find_better_match(&mut self) {
+        if self.len <= M2MinLen || self.off <= M2MaxOffset {
+            return;
+        }
+        if self.len <= M2MaxLen + 1
+            && self.best_off[self.len - 1] != 0
+            && self.best_off[self.len - 1] <= M2MaxOffset
+        {
+            self.len -= 1;
+        } else if self.off > M3MaxOffset
+            && self.len > M4MaxLen
+            && self.len <= M2MaxLen + 2
+            && self.best_off[self.len - 2] != 0
+            && self.best_off[self.len] <= M2MaxOffset
+        {
+            self.len -= 2;
+        } else if self.off > M3MaxOffset
+            && self.len > M4MaxLen
+            && self.len <= M3MaxLen + 1
+            && self.best_off[self.len - 1] != 0
+            && self.best_off[self.len - 2] <= M3MaxOffset
+        {
+            self.len -= 1;
+        } else {
+            return;
+        }
+        self.off = self.best_off[self.len];
+    }
+}
+
 pub struct Dict {
     match3: Match3,
     match2: Match2,
@@ -263,80 +296,63 @@ impl Dict {
         }
     }
 
-    unsafe fn advance(
-        &mut self,
-        s: &mut State,
-        lb_off: &mut usize,
-        lb_len: &mut usize,
-        best_off: &mut [usize; MaxMatchByLengthLen],
-        skip: bool,
-    ) {
+    unsafe fn advance(&mut self, s: &mut State, lb: &mut LookbackMatch, skip: bool) {
         if skip {
-            for _ in 0..*lb_len - 1 {
+            for _ in 1..lb.len {
                 self.reset_next_input_entry(s);
-                self.match3.skip_advance(s, &self.buffer[..]);
-                self.match2.add(s.wind_b as u16, &self.buffer[..]);
+                self.match3.skip_advance(s, &self.buffer);
+                self.match2.add(s.wind_b as u16, &self.buffer);
                 s.get_byte(self.buffer.as_mut_ptr());
             }
         }
 
-        *lb_len = 1;
-        *lb_off = 0;
-        let mut lb_pos = 0usize;
+        lb.len = 1;
+        lb.off = 0;
 
-        let mut best_pos = [0; MaxMatchByLengthLen];
-        let mut match_pos = 0usize;
-        let mut match_count = 0usize;
+        let (mut match_pos, match_count) = self.match3.advance(s, &self.buffer);
+        let best_len = lb.len;
+        let at_end = s.wind_sz == 0;
 
-        self.match3
-            .advance(s, &mut match_pos, &mut match_count, &self.buffer[..]);
-
-        let mut best_char = Some(self.buffer[s.wind_b]);
-        let best_len = *lb_len;
-
-        if *lb_len >= s.wind_sz {
-            if s.wind_sz == 0 {
-                best_char = None
-            }
-            *lb_off = 0; // superfluous?
+        if s.wind_sz <= 1 {
             self.match3.best_len[s.wind_b] = MAX_MATCH_LEN as u16 + 1;
         } else {
-            if self
-                .match2
-                .search(s, &mut lb_pos, lb_len, &mut best_pos, &self.buffer[..])
-                && s.wind_sz >= 3
-            {
-                for _i in 0..match_count {
-                    let bufp = self.buffer.as_ptr();
-                    debug_assert!(s.wind_b + s.wind_sz <= self.buffer.len());
-                    debug_assert!(match_pos + s.wind_sz <= self.buffer.len());
-                    let match_len = mismatch(bufp.add(s.wind_b), bufp.add(match_pos), s.wind_sz);
+            let mut best_pos = [0; MaxMatchByLengthLen];
+            if let Some(p) = self.match2.search(s, &self.buffer) {
+                best_pos[2] = p + 1;
+                lb.len = 2;
+                let mut lb_pos = p;
+                if s.wind_sz >= 3 {
+                    let wind = &self.buffer[s.wind_b..s.wind_b + s.wind_sz];
+                    for _ in 0..match_count {
+                        let match_len =
+                            mismatch(wind, &self.buffer[match_pos..match_pos + s.wind_sz]);
 
-                    if match_len < 2 {
-                        match_pos = self.match3.chain[match_pos] as usize;
-                        continue;
-                    }
-                    if match_len < MaxMatchByLengthLen && best_pos[match_len] == 0 {
-                        best_pos[match_len] = match_pos + 1;
-                    }
-                    if match_len > *lb_len {
-                        *lb_len = match_len;
-                        lb_pos = match_pos;
-                        if match_len == s.wind_sz
-                            || match_len > self.match3.best_len[match_pos] as usize
-                        {
-                            break;
+                        if match_len < 2 {
+                            match_pos = self.match3.chain[match_pos] as usize;
+                            continue;
                         }
+                        if match_len < MaxMatchByLengthLen && best_pos[match_len] == 0 {
+                            best_pos[match_len] = match_pos + 1;
+                        }
+                        if match_len > lb.len {
+                            lb.len = match_len;
+                            lb_pos = match_pos;
+                            if match_len == s.wind_sz
+                                || match_len > self.match3.best_len[match_pos] as usize
+                            {
+                                break;
+                            }
+                        }
+                        match_pos = self.match3.chain[match_pos] as usize;
                     }
-                    match_pos = self.match3.chain[match_pos] as usize;
+                }
+                if lb.len > best_len {
+                    lb.off = s.pos2off(lb_pos);
                 }
             }
-            if *lb_len > best_len {
-                *lb_off = s.pos2off(lb_pos);
-            }
-            self.match3.best_len[s.wind_b] = *lb_len as u16;
+            self.match3.best_len[s.wind_b] = lb.len as u16;
             for i in 2..MaxMatchByLengthLen {
-                best_off[i] = if best_pos[i] > 0 {
+                lb.best_off[i] = if best_pos[i] > 0 {
                     s.pos2off(best_pos[i].wrapping_sub(1))
                 } else {
                     0
@@ -346,13 +362,13 @@ impl Dict {
 
         self.reset_next_input_entry(s);
 
-        self.match2.add(s.wind_b as u16, &self.buffer[..]);
+        self.match2.add(s.wind_b as u16, &self.buffer);
 
         s.get_byte(self.buffer.as_mut_ptr());
 
-        if best_char.is_none() {
+        if at_end {
             s.buf_sz = 0;
-            *lb_len = 0
+            lb.len = 0
             /* Signal exit */
         } else {
             s.buf_sz = s.wind_sz + 1;
@@ -361,51 +377,27 @@ impl Dict {
     }
 }
 
+/// Length of common prefix of `a` and `b`
 #[inline(always)]
-unsafe fn mismatch(a: *const u8, b: *const u8, n: usize) -> usize {
+fn mismatch(a: &[u8], b: &[u8]) -> usize {
+    const WORD_SIZE: usize = std::mem::size_of::<u64>();
+    let n = a.len().min(b.len());
+    let a = &a[..n];
+    let b = &b[..n];
     let mut i = 0;
-    while i < n {
-        if *a.add(i) != *b.add(i) {
-            return i;
+    for (ca, cb) in a.chunks_exact(WORD_SIZE).zip(b.chunks_exact(WORD_SIZE)) {
+        let diff =
+            u64::from_le_bytes(ca.try_into().unwrap()) ^ u64::from_le_bytes(cb.try_into().unwrap());
+        if diff != 0 {
+            return i + diff.trailing_zeros() as usize / 8;
         }
-        i += 1;
+        i += WORD_SIZE;
     }
-    n
-}
-
-fn find_better_match(
-    best_off: [usize; MaxMatchByLengthLen],
-    lb_len: &mut usize,
-    lb_off: &mut usize,
-) {
-    if *lb_len <= M2MinLen || *lb_off <= M2MaxOffset {
-        return;
-    }
-    if *lb_off > M2MaxOffset
-        && *lb_len > M2MinLen
-        && *lb_len <= M2MaxLen + 1
-        && best_off[*lb_len - 1] != 0
-        && best_off[*lb_len - 1] <= M2MaxOffset
-    {
-        *lb_len -= 1;
-        *lb_off = best_off[*lb_len];
-    } else if *lb_off > M3MaxOffset
-        && *lb_len > M4MaxLen
-        && *lb_len <= M2MaxLen + 2
-        && best_off[*lb_len - 2] != 0
-        && best_off[*lb_len] <= M2MaxOffset
-    {
-        *lb_len -= 2;
-        *lb_off = best_off[*lb_len];
-    } else if *lb_off > M3MaxOffset
-        && *lb_len > M4MaxLen
-        && *lb_len <= M3MaxLen + 1
-        && best_off[*lb_len - 1] != 0
-        && best_off[*lb_len - 2] <= M3MaxOffset
-    {
-        *lb_len -= 1;
-        *lb_off = best_off[*lb_len];
-    }
+    a[i..]
+        .iter()
+        .zip(&b[i..])
+        .position(|(x, y)| x != y)
+        .map_or(n, |p| i + p)
 }
 
 macro_rules! needs_out {
@@ -835,44 +827,42 @@ unsafe fn compress_internal(
     let outp_end = outp.add(dst_size);
     let mut lit_len = 0;
     let mut lit_ptr = s.inp;
-    let mut lb_len = 0;
-    let mut lb_off = 0;
-    let mut best_off = [0; MaxMatchByLengthLen];
 
-    dict.advance(&mut s, &mut lb_off, &mut lb_len, &mut best_off, false);
+    let mut lb = LookbackMatch::new();
+    dict.advance(&mut s, &mut lb, false);
 
     while s.buf_sz > 0 {
         if lit_len == 0 {
             lit_ptr = s.bufp;
         }
         #[allow(clippy::if_same_then_else)]
-        if lb_len < 2
-            || (lb_len == 2 && (lb_off > M1MaxOffset || lit_len == 0 || lit_len >= 4))
-            || (lb_len == 2 && outp == dst)
+        if lb.len < 2
+            || (lb.len == 2 && (lb.off > M1MaxOffset || lit_len == 0 || lit_len >= 4))
+            || (lb.len == 2 && outp == dst)
             || (outp == dst && lit_len == 0)
         {
-            lb_len = 0;
-        } else if lb_len == M2MinLen && lb_off > M1MaxOffset + M2MaxOffset && lit_len >= 4 {
-            lb_len = 0;
+            lb.len = 0;
+        } else if lb.len == M2MinLen && lb.off > M1MaxOffset + M2MaxOffset && lit_len >= 4 {
+            lb.len = 0;
         }
-        if lb_len == 0 {
+        if lb.len == 0 {
             lit_len += 1;
-            dict.advance(&mut s, &mut lb_off, &mut lb_len, &mut best_off, false);
+            dict.advance(&mut s, &mut lb, false);
             continue;
         }
-        find_better_match(best_off, &mut lb_len, &mut lb_off);
+        lb.find_better_match();
         encode_literal_run(&mut outp, outp_end, dst, &mut dst_size, lit_ptr, lit_len)?;
         encode_lookback_match(
             &mut outp,
             outp_end,
             dst,
             &mut dst_size,
-            lb_len,
-            lb_off,
+            lb.len,
+            lb.off,
             lit_len,
         )?;
         lit_len = 0;
-        dict.advance(&mut s, &mut lb_off, &mut lb_len, &mut best_off, true);
+        dict.advance(&mut s, &mut lb, true);
     }
     encode_literal_run(&mut outp, outp_end, dst, &mut dst_size, lit_ptr, lit_len)?;
 
@@ -892,6 +882,58 @@ unsafe fn compress_internal(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mismatch_returns_end_position_for_matching_slices() {
+        assert_eq!(mismatch(b"aaaa", b"aaaa"), 4);
+    }
+
+    #[test]
+    fn mismatch_returns_smaller_end_when_one_is_a_prefix_of_the_other() {
+        assert_eq!(mismatch(b"aaaa", b"aaaaaa"), 4);
+        assert_eq!(mismatch(b"aaaaaa", b"aaaa"), 4);
+    }
+
+    #[test]
+    fn mismatch_returns_position_of_first_diverging_byte() {
+        assert_eq!(mismatch(b"aaaa0", b"aaaa1"), 4);
+        assert_eq!(mismatch(b"0aaaa", b"1aaaa"), 0);
+    }
+
+    #[test]
+    fn mismatch_returns_zero_for_empty_slices() {
+        assert_eq!(mismatch(b"", b""), 0);
+        assert_eq!(mismatch(b"", b"aaaa"), 0);
+        assert_eq!(mismatch(b"aaaa", b""), 0);
+    }
+
+    #[test]
+    fn mismatch_returns_position_at_word_boundaries() {
+        for (len, pos) in [(8, 7), (16, 8), (16, 15), (24, 16)] {
+            let (a, b) = slices_diverging_at(len, pos);
+            assert_eq!(mismatch(&a, &b), pos);
+        }
+    }
+
+    fn slices_diverging_at(len: usize, pos: usize) -> (Vec<u8>, Vec<u8>) {
+        let a = vec![b'a'; len];
+        let mut b = a.clone();
+        b[pos] += 1;
+        (a, b)
+    }
+
+    #[test]
+    fn mismatch_returns_position_of_divergence_in_tail_after_full_words() {
+        for (len, pos) in [(9, 8), (10, 9), (17, 16)] {
+            let (a, b) = slices_diverging_at(len, pos);
+            assert_eq!(mismatch(&a, &b), pos);
+        }
+    }
+
+    #[test]
+    fn mismatch_returns_first_diverging_byte_when_multiple_bytes_differ() {
+        assert_eq!(mismatch(b"aXYZefgh", b"aabcefgh"), 1);
+    }
 
     #[test]
     fn truncated_input_returns_input_overrun() {
