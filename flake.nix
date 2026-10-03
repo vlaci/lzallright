@@ -150,6 +150,7 @@
             packages = with pkgs; [
               cargo-msrv
               cargo-fuzz
+              cargo-nextest
               (rust-bin.selectLatestNightlyWith (
                 toolchain:
                 toolchain.default.override {

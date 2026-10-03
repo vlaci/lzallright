@@ -21,3 +21,8 @@ members = ["."]
 name = "decompress"
 path = "fuzz_targets/decompress.rs"
 doc = false
+
+[[bin]]
+name = "roundtrip"
+path = "fuzz_targets/roundtrip.rs"
+doc = false

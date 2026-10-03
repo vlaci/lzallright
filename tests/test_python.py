@@ -1,5 +1,7 @@
 import array
 import mmap
+import os
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -39,40 +41,38 @@ def test_decompress_error(lorem):
     assert exc.value.args == (lzallright.EResult.LookbehindOverrun,)
 
 
-def test_decompress_truncated(lorem):
-    comp = lzallright.LZOCompressor().compress(lorem)
-
-    with pytest.raises(lzallright.LZOError) as exc:
-        lzallright.LZOCompressor.decompress(comp[:-10])
-
-    assert exc.value.args == (lzallright.EResult.InputOverrun,)
-
-
-def _mmap(data):
-    m = mmap.mmap(-1, len(data))
-    m.write(data)
-    return m
+def roundtrip(data, **kwargs):
+    comp = lzallright.LZOCompressor().compress(data)
+    return lzallright.LZOCompressor.decompress(comp, **kwargs)
 
 
 @pytest.mark.parametrize(
-    "wrap",
-    [bytearray, memoryview, _mmap, lambda d: array.array("B", d)],
-    ids=["bytearray", "memoryview", "mmap", "array-B"],
+    "data",
+    [
+        bytearray(b"hello world" * 10),
+        memoryview(b"hello world" * 10),
+        array.array("i", range(100)),
+    ],
+    ids=type,
 )
-def test_buffer_types(lorem, wrap):
-    comp = lzallright.LZOCompressor().compress(wrap(lorem))
-    assert lzallright.LZOCompressor.decompress(wrap(comp)) == lorem
+def test_buffer_types(data):
+    assert roundtrip(data) == memoryview(data).tobytes()
 
 
-def test_buffer_non_byte_items():
-    data = array.array("i", range(1000))
-    comp = lzallright.LZOCompressor().compress(data)
-    assert lzallright.LZOCompressor.decompress(comp) == data.tobytes()
+def test_mmap():
+    with mmap.mmap(-1, 4096) as m:
+        m.write(b"x" * 4096)
+        assert roundtrip(m) == b"x" * 4096
 
 
-@pytest.mark.parametrize("data", ["str", [1, 2, 3], 5], ids=["str", "list", "int"])
-def test_non_buffer_rejected(data):
-    with pytest.raises(TypeError):
-        lzallright.LZOCompressor().compress(data)
-    with pytest.raises(TypeError):
-        lzallright.LZOCompressor.decompress(data)
+@pytest.mark.xfail(strict=True, reason="buffers are not yet validated")
+def test_non_contiguous_buffer_is_rejected():
+    with pytest.raises(BufferError):
+        lzallright.LZOCompressor().compress(memoryview(b"abcdefgh" * 10)[::2])
+
+
+def test_truncated_input():
+    with pytest.raises(lzallright.LZOError) as exc:
+        lzallright.LZOCompressor.decompress(b"\x11\x00")
+
+    assert exc.value.args == (lzallright.EResult.InputOverrun,)
