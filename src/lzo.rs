@@ -1,5 +1,6 @@
 #![allow(non_upper_case_globals)]
 use crate::error::{Error, ErrorKind};
+use std::cell::Cell;
 
 const HASH_SIZE: usize = 0x4000;
 const MAX_DIST: usize = 0xbfff;
@@ -530,167 +531,216 @@ unsafe fn encode_lookback_match(
     Ok(())
 }
 
-pub fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
-    unsafe { decompress_inner(src.as_ptr(), src.len(), dst.as_mut_ptr(), dst.len()) }
+struct Decoder<'a> {
+    src: &'a [u8],
+    inp: usize,
+    dst: &'a mut [u8],
+    outp: usize,
 }
 
-unsafe fn decompress_inner(
-    src: *const u8,
-    src_size: usize,
-    dst: *mut u8,
-    init_dst_size: usize,
-) -> Result<usize, Error> {
-    let mut dst_size = init_dst_size;
+impl<'a> Decoder<'a> {
+    fn new(src: &'a [u8], dst: &'a mut [u8]) -> Self {
+        Self {
+            src,
+            inp: 0,
+            dst,
+            outp: 0,
+        }
+    }
 
-    if src_size < 3 {
+    #[inline]
+    fn error(&self, kind: ErrorKind) -> Error {
+        Error::new(kind, self.outp)
+    }
+
+    #[inline]
+    fn needs_in(&self, count: usize) -> Result<(), Error> {
+        if count > self.src.len() - self.inp {
+            Err(self.error(ErrorKind::InputOverrun))
+        } else {
+            Ok(())
+        }
+    }
+
+    #[inline]
+    fn needs_out(&self, count: usize) -> Result<(), Error> {
+        if count > self.dst.len() - self.outp {
+            Err(self.error(ErrorKind::OutputOverrun))
+        } else {
+            Ok(())
+        }
+    }
+
+    #[inline]
+    fn read_byte(&mut self) -> Result<usize, Error> {
+        let byte = *self
+            .src
+            .get(self.inp)
+            .ok_or_else(|| self.error(ErrorKind::InputOverrun))?;
+        self.inp += 1;
+        Ok(usize::from(byte))
+    }
+
+    #[inline]
+    fn read_le16(&mut self) -> Result<usize, Error> {
+        self.needs_in(2)?;
+        let v = u16::from_le_bytes([self.src[self.inp], self.src[self.inp + 1]]);
+        self.inp += 2;
+        Ok(usize::from(v))
+    }
+
+    /// Variable length encoding: `base + (zero_bytes * 255) + non_zero_byte`
+    #[inline]
+    fn read_zero_byte_length(&mut self, base: usize) -> Result<usize, Error> {
+        let zeros = self.src[self.inp..].iter().take_while(|&&b| b == 0).count();
+        self.inp += zeros;
+        if zeros > Max255Count {
+            return Err(self.error(ErrorKind::Error));
+        }
+        Ok(zeros * 255 + base + self.read_byte()?)
+    }
+
+    #[inline]
+    fn copy_literal(&mut self, len: usize) -> Result<(), Error> {
+        self.needs_in(len)?;
+        self.needs_out(len)?;
+        self.dst[self.outp..self.outp + len].copy_from_slice(&self.src[self.inp..self.inp + len]);
+        self.inp += len;
+        self.outp += len;
+        Ok(())
+    }
+
+    /// Copies `len` bytes from `dist` bytes behind the output position, then
+    /// `nstate` literals.
+    #[inline]
+    fn copy_match(&mut self, dist: usize, len: usize, nstate: usize) -> Result<(), Error> {
+        if dist > self.outp {
+            return Err(self.error(ErrorKind::LookbehindOverrun));
+        }
+        self.needs_in(nstate)?;
+        self.needs_out(len + nstate)?;
+
+        // cannot use copy_within as RLE needs byte-wise copy
+        let window = &mut self.dst[self.outp - dist..self.outp + len];
+        let window = Cell::from_mut(window).as_slice_of_cells();
+        if len <= 8 {
+            // PERF: short copy optimization
+            for k in 0..8 {
+                if k < len {
+                    window[dist + k].set(window[k].get());
+                }
+            }
+        } else {
+            for (d, s) in window[dist..].iter().zip(window) {
+                d.set(s.get());
+            }
+        }
+        self.outp += len;
+
+        // `nstate` is at most 3: a guarded, fully unrolled copy beats the
+        // out-of-line `memcpy` call LLVM emits for a plain copy loop.
+        let out = &mut self.dst[self.outp..self.outp + nstate];
+        let lit = &self.src[self.inp..self.inp + nstate];
+        for k in 0..3 {
+            if k < nstate {
+                out[k] = lit[k];
+            }
+        }
+        self.inp += nstate;
+        self.outp += nstate;
+        Ok(())
+    }
+}
+
+pub fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
+    if src.len() < 3 {
         return Err(Error::new(ErrorKind::InputOverrun, 0));
     }
 
-    let mut inp = src;
-    let inp_end = src.add(src_size);
-    let mut outp = dst;
-    let outp_end = dst.add(dst_size);
-    let mut lbcur;
+    let mut decoder = Decoder::new(src, dst);
+
     let mut lbdist;
     let mut lblen;
     let mut state = 0;
     let mut nstate;
 
-    macro_rules! needs_in {
-        ($count:expr) => {
-            if $count > inp_end.offset_from(inp) as usize {
-                dst_size = outp.offset_from(dst) as usize;
-                return Err(Error::new(ErrorKind::InputOverrun, dst_size));
-            }
-        };
-    }
+    let first = src[0] as usize;
 
-    macro_rules! needs_out {
-        ($count:expr) => {{
-            if $count > outp_end.offset_from(outp) as usize {
-                dst_size = outp.offset_from(dst) as usize;
-                return Err(Error::new(ErrorKind::OutputOverrun, dst_size));
-            }
-        }};
-    }
-
-    macro_rules! consume_zero_byte_length {
-        () => {{
-            let mut offset = 0;
-            while (inp < inp_end && *inp == 0) {
-                // fuzzfix
-                needs_in!(1);
-                inp = inp.add(1);
-                offset += 1;
-            }
-            if offset > Max255Count {
-                return Err(Error::new(ErrorKind::Error, outp.offset_from(dst) as usize));
-            }
-            offset
-        }};
-    }
-
-    /* First byte encoding */
-    if *inp >= 22 {
-        /* 22..255 : copy literal string
-         *           length = (byte - 17) = 4..238
-         *           state = 4 [ don't copy extra literals ]
-         *           skip byte
-         */
-        let len = (*inp - 17) as usize;
-        inp = inp.add(1);
-        needs_in!(len);
-        needs_out!(len);
-        std::ptr::copy_nonoverlapping(inp, outp, len);
-        inp = inp.add(len);
-        outp = outp.add(len);
+    // First byte encoding
+    if first >= 22 {
+        // 22..255 : copy literal string
+        //           length = (byte - 17) = 4..238
+        //           state = 4 [ don't copy extra literals ]
+        //           skip byte
+        decoder.inp += 1;
+        decoder.copy_literal(first - 17)?;
         state = 4;
-    } else if *inp >= 18 {
-        /* 18..21 : copy 0..3 literals
-         *          state = (byte - 17) = 0..3  [ copy <state> literals ]
-         *          skip byte
-         */
-        nstate = (*inp - 17) as usize;
-        inp = inp.add(1);
-        state = nstate;
-        needs_in!(nstate);
-        needs_out!(nstate);
-        std::ptr::copy_nonoverlapping(inp, outp, nstate);
-        inp = inp.add(nstate);
-        outp = outp.add(nstate);
+    } else if first >= 18 {
+        // 18..21 : copy 0..3 literals
+        //          state = (byte - 17) = 0..3  [ copy <state> literals ]
+        //          skip byte
+        decoder.inp += 1;
+        state = first - 17;
+        decoder.copy_literal(state)?;
     }
-    /* 0..17 : follow regular instruction encoding, see below. It is worth
-     *         noting that codes 16 and 17 will represent a block copy from
-     *         the dictionary which is empty, and that they will always be
-     *         invalid at this place.
-     */
+
+    // 0..17 : follow regular instruction encoding, see below. It is worth
+    //         noting that codes 16 and 17 will represent a block copy from
+    //         the dictionary which is empty, and that they will always be
+    //         invalid at this place.
 
     loop {
-        needs_in!(1);
-        let inst = *inp as usize;
-        inp = inp.add(1);
+        let inst = decoder.read_byte()?;
         if inst & 0xC0 != 0 {
-            /* [M2]
-             * 1 L L D D D S S  (128..255)
-             *   Copy 5-8 bytes from block within 2kB distance
-             *   state = S (copy S literals after this block)
-             *   length = 5 + L
-             * Always followed by exactly one byte : H H H H H H H H
-             *   distance = (H << 3) + D + 1
-             *
-             * 0 1 L D D D S S  (64..127)
-             *   Copy 3-4 bytes from block within 2kB distance
-             *   state = S (copy S literals after this block)
-             *   length = 3 + L
-             * Always followed by exactly one byte : H H H H H H H H
-             *   distance = (H << 3) + D + 1
-             */
-            needs_in!(1);
-            lbdist = ((*inp as usize) << 3) + ((inst >> 2) & 0x7) + 1;
-            inp = inp.add(1);
+            // [M2]
+            // 1 L L D D D S S  (128..255)
+            //   Copy 5-8 bytes from block within 2kB distance
+            //   state = S (copy S literals after this block)
+            //   length = 5 + L
+            // Always followed by exactly one byte : H H H H H H H H
+            //   distance = (H << 3) + D + 1
+            //
+            // 0 1 L D D D S S  (64..127)
+            //   Copy 3-4 bytes from block within 2kB distance
+            //   state = S (copy S literals after this block)
+            //   length = 3 + L
+            // Always followed by exactly one byte : H H H H H H H H
+            //   distance = (H << 3) + D + 1
+            let b = decoder.read_byte()?;
+            lbdist = (b << 3) + ((inst >> 2) & 0x7) + 1;
             lblen = (inst >> 5) + 1;
             nstate = inst & 0x3;
         } else if inst & M3Marker != 0 {
-            /* [M3]
-             * 0 0 1 L L L L L  (32..63)
-             *   Copy of small block within 16kB distance (preferably less than 34B)
-             *   length = 2 + (L ?: 31 + (zero_bytes * 255) + non_zero_byte)
-             * Always followed by exactly one LE16 :  D D D D D D D D : D D D D D D S S
-             *   distance = D + 1
-             *   state = S (copy S literals after this block)
-             */
+            // [M3]
+            // 0 0 1 L L L L L  (32..63)
+            //   Copy of small block within 16kB distance (preferably less than 34B)
+            //   length = 2 + (L ?: 31 + (zero_bytes * 255) + non_zero_byte)
+            // Always followed by exactly one LE16 :  D D D D D D D D : D D D D D D S S
+            //   distance = D + 1
+            //   state = S (copy S literals after this block)
             lblen = (inst & 0x1f) + 2;
             if lblen == 2 {
-                let offset = consume_zero_byte_length!();
-                needs_in!(1);
-                lblen += offset * 255 + 31 + *inp as usize;
-                inp = inp.add(1);
+                let offset = decoder.read_zero_byte_length(31)?;
+                lblen += offset;
             }
-            needs_in!(2);
-            nstate = get_le16(inp);
-            inp = inp.add(2);
+            nstate = decoder.read_le16()?;
             lbdist = (nstate >> 2) + 1;
             nstate &= 0x3;
         } else if inst & M4Marker != 0 {
-            /* [M4]
-             * 0 0 0 1 H L L L  (16..31)
-             *   Copy of a block within 16..48kB distance (preferably less than 10B)
-             *   length = 2 + (L ?: 7 + (zero_bytes * 255) + non_zero_byte)
-             * Always followed by exactly one LE16 :  D D D D D D D D : D D D D D D S S
-             *   distance = 16384 + (H << 14) + D
-             *   state = S (copy S literals after this block)
-             *   End of stream is reached if distance == 16384
-             */
+            // [M4]
+            // 0 0 0 1 H L L L  (16..31)
+            //   Copy of a block within 16..48kB distance (preferably less than 10B)
+            //   length = 2 + (L ?: 7 + (zero_bytes * 255) + non_zero_byte)
+            // Always followed by exactly one LE16 :  D D D D D D D D : D D D D D D S S
+            //   distance = 16384 + (H << 14) + D
+            //   state = S (copy S literals after this block)
+            //   End of stream is reached if distance == 16384
             lblen = (inst & 0x7) + 2;
             if lblen == 2 {
-                let offset = consume_zero_byte_length!();
-                needs_in!(1);
-                lblen += offset * 255 + 7 + *inp as usize;
-                inp = inp.add(1);
+                let offset = decoder.read_zero_byte_length(7)?;
+                lblen += offset;
             }
-            needs_in!(2);
-            nstate = get_le16(inp);
-            inp = inp.add(2);
+            nstate = decoder.read_le16()?;
             lbdist = ((inst & 0x8) << 11) + (nstate >> 2);
             nstate &= 0x3;
             if lbdist == 0 {
@@ -698,117 +748,69 @@ unsafe fn decompress_inner(
             }
             lbdist += 16384;
         } else {
-            /* [M1] Depends on the number of literals copied by the last instruction. */
+            // [M1] Depends on the number of literals copied by the last instruction. */
             if state == 0 {
-                /* If last instruction did not copy any literal (state == 0), this
-                 * encoding will be a copy of 4 or more literal, and must be interpreted
-                 * like this :
-                 *
-                 *    0 0 0 0 L L L L  (0..15)  : copy long literal string
-                 *    length = 3 + (L ?: 15 + (zero_bytes * 255) + non_zero_byte)
-                 *    state = 4  (no extra literals are copied)
-                 */
+                // If last instruction did not copy any literal (state == 0), this
+                // encoding will be a copy of 4 or more literal, and must be interpreted
+                // like this :
+                //
+                //    0 0 0 0 L L L L  (0..15)  : copy long literal string
+                //    length = 3 + (L ?: 15 + (zero_bytes * 255) + non_zero_byte)
+                //    state = 4  (no extra literals are copied)
                 let mut len = inst + 3;
                 if len == 3 {
-                    let offset = consume_zero_byte_length!();
-                    needs_in!(1);
-                    len += offset * 255 + 15 + *inp as usize;
-                    inp = inp.add(1);
+                    let offset = decoder.read_zero_byte_length(15)?;
+                    len += offset;
                 }
-                /* copy_literal_run */
-                needs_in!(len);
-                needs_out!(len);
-                std::ptr::copy_nonoverlapping(inp, outp, len);
-                outp = outp.add(len);
-                inp = inp.add(len);
+                decoder.copy_literal(len)?;
                 state = 4;
                 continue;
             } else if state != 4 {
-                /* If last instruction used to copy between 1 to 3 literals (encoded in
-                 * the instruction's opcode or distance), the instruction is a copy of a
-                 * 2-byte block from the dictionary within a 1kB distance. It is worth
-                 * noting that this instruction provides little savings since it uses 2
-                 * bytes to encode a copy of 2 other bytes but it encodes the number of
-                 * following literals for free. It must be interpreted like this :
-                 *
-                 *    0 0 0 0 D D S S  (0..15)  : copy 2 bytes from <= 1kB distance
-                 *    length = 2
-                 *    state = S (copy S literals after this block)
-                 *  Always followed by exactly one byte : H H H H H H H H
-                 *    distance = (H << 2) + D + 1
-                 */
-                needs_in!(1);
+                // If last instruction used to copy between 1 to 3 literals (encoded in
+                // the instruction's opcode or distance), the instruction is a copy of a
+                // 2-byte block from the dictionary within a 1kB distance. It is worth
+                // noting that this instruction provides little savings since it uses 2
+                // bytes to encode a copy of 2 other bytes but it encodes the number of
+                // following literals for free. It must be interpreted like this :
+                //
+                //    0 0 0 0 D D S S  (0..15)  : copy 2 bytes from <= 1kB distance
+                //    length = 2
+                //    state = S (copy S literals after this block)
+                //  Always followed by exactly one byte : H H H H H H H H
+                //    distance = (H << 2) + D + 1
+                let b = decoder.read_byte()?;
                 nstate = inst & 0x3;
-                lbdist = (inst >> 2) + ((*inp as usize) << 2) + 1;
-                inp = inp.add(1);
+                lbdist = (inst >> 2) + (b << 2) + 1;
                 lblen = 2;
             } else {
-                /* If last instruction used to copy 4 or more literals (as detected by
-                 * state == 4), the instruction becomes a copy of a 3-byte block from the
-                 * dictionary from a 2..3kB distance, and must be interpreted like this :
-                 *
-                 *    0 0 0 0 D D S S  (0..15)  : copy 3 bytes from 2..3 kB distance
-                 *    length = 3
-                 *    state = S (copy S literals after this block)
-                 *  Always followed by exactly one byte : H H H H H H H H
-                 *    distance = (H << 2) + D + 2049
-                 */
-                needs_in!(1);
+                // If last instruction used to copy 4 or more literals (as detected by
+                // state == 4), the instruction becomes a copy of a 3-byte block from the
+                // dictionary from a 2..3kB distance, and must be interpreted like this :
+                //
+                //    0 0 0 0 D D S S  (0..15)  : copy 3 bytes from 2..3 kB distance
+                //    length = 3
+                //    state = S (copy S literals after this block)
+                //  Always followed by exactly one byte : H H H H H H H H
+                //    distance = (H << 2) + D + 2049
+                let b = decoder.read_byte()?;
                 nstate = inst & 0x3;
-                lbdist = (inst >> 2) + ((*inp as usize) << 2) + 2049;
-                inp = inp.add(1);
+                lbdist = (inst >> 2) + (b << 2) + 2049;
                 lblen = 3;
             }
         }
-        if lbdist > outp.offset_from(dst) as usize {
-            let dst_size = outp.offset_from(dst) as usize;
-            return Err(Error::new(ErrorKind::LookbehindOverrun, dst_size));
-        }
-        lbcur = outp.wrapping_sub(lbdist);
-
-        needs_in!(nstate);
-        needs_out!(lblen + nstate);
-        /* Copy lookbehind */
-        // NOTE: cannot use `copy_within`, as the algorithm depends on the
-        // quirky behavior of overlap handling
-        // dst.copy_within(lbcur..lbcur + lblen, outp);
-        for _ in 0..lblen {
-            *outp = *lbcur;
-            outp = outp.add(1);
-            lbcur = lbcur.add(1);
-        }
+        decoder.copy_match(lbdist, lblen, nstate)?;
         state = nstate;
-        /* Copy literal */
-        // std::ptr::copy_nonoverlapping(inp, outp, nstate);
-        for _ in 0..nstate {
-            *outp = *inp;
-            inp = inp.add(1);
-            outp = outp.add(1);
-        }
     }
 
-    let dst_size = outp.offset_from(dst) as usize;
     if lblen != 3 {
-        /* Ensure terminating M4 was encountered */
-        return Err(Error::new(ErrorKind::Error, dst_size));
+        // Ensure terminating M4 was encountered
+        return Err(decoder.error(ErrorKind::Error));
     }
-    if inp == inp_end {
-        Ok(dst_size)
-    } else if inp < inp_end {
-        Err(Error::new(ErrorKind::InputNotConsumed, dst_size))
+    if decoder.inp == src.len() {
+        Ok(decoder.outp)
     } else {
-        Err(Error::new(ErrorKind::InputOverrun, dst_size))
+        Err(decoder.error(ErrorKind::InputNotConsumed))
     }
-}
-
-/// # Safety
-///
-/// `p` must point to at least 2 readable bytes.
-#[inline(always)]
-unsafe fn get_le16(p: *const u8) -> usize {
-    let lsb = *p;
-    let msb = *p.add(1);
-    ((msb as usize) << 8) | lsb as usize
 }
 
 pub fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, Error> {
