@@ -1,6 +1,4 @@
 #![allow(non_upper_case_globals)]
-use std::cmp;
-
 use crate::error::{Error, ErrorKind};
 
 const HASH_SIZE: usize = 0x4000;
@@ -134,65 +132,68 @@ impl Default for Match2 {
     }
 }
 
-struct State {
-    src_end: *const u8,
-    inp: *const u8, // TODO uint8_t* maybe Cursor
+struct State<'a> {
+    src: &'a [u8],
+    inp: usize,
     wind_sz: usize,
     wind_b: usize,
     wind_e: usize,
     cycle1_countdown: usize,
-    bufp: *const u8,
+    bufp: usize,
     buf_sz: usize,
 }
 
-impl State {
-    unsafe fn new(src: *const u8, src_size: usize, dict: &mut Dict) -> Self {
-        let wind_sz = cmp::min(src_size, MAX_MATCH_LEN);
+impl<'a> State<'a> {
+    fn new(src: &'a [u8], buf: &mut Window) -> Self {
+        let wind_sz = src.len().min(MAX_MATCH_LEN);
         let mut state = State {
-            src_end: src.add(src_size),
-            inp: src.add(wind_sz),
+            src,
+            inp: wind_sz,
             wind_sz,
             wind_b: 0,
             wind_e: wind_sz,
             cycle1_countdown: MAX_DIST,
-            bufp: src,
+            bufp: 0,
             buf_sz: 0,
         };
 
-        let dict_buffer = dict.buffer.as_mut_ptr();
-        std::ptr::copy_nonoverlapping(src, dict_buffer, wind_sz);
+        buf[..wind_sz].copy_from_slice(&src[..wind_sz]);
 
+        // Unreachable under current settings
+        // assert!(MAX_MATCH_LEN < BUF_SIZE);
         if state.wind_e == BUF_SIZE {
             state.wind_e = 0;
         }
 
         if wind_sz < 3 {
-            dict.buffer[wind_sz..wind_sz + 3].fill(0);
+            buf[wind_sz..wind_sz + 3].fill(0);
         }
         state
     }
 
-    /* Access next input byte and advance both ends of circular buffer */
-    unsafe fn get_byte(&mut self, buf: *mut u8) {
-        if self.inp >= self.src_end {
-            if self.wind_sz > 0 {
-                self.wind_sz -= 1;
+    /// Access next input byte and advance both ends of circular buffer
+    fn get_byte(&mut self, buf: &mut Window) {
+        let b = match self.src.get(self.inp) {
+            Some(&b) => {
+                self.inp += 1;
+                b
             }
-            *buf.add(self.wind_e) = 0;
-            if self.wind_e < MAX_MATCH_LEN {
-                *buf.add(BUF_SIZE + self.wind_e) = 0;
+            None => {
+                self.wind_sz = self.wind_sz.saturating_sub(1);
+                0
             }
-        } else {
-            *buf.add(self.wind_e) = *self.inp;
-            if self.wind_e < MAX_MATCH_LEN {
-                *buf.add(BUF_SIZE + self.wind_e) = *self.inp;
-            }
-            self.inp = self.inp.add(1);
+        };
+        buf[self.wind_e] = b;
+
+        if self.wind_e < MAX_MATCH_LEN {
+            buf[BUF_SIZE + self.wind_e] = b;
         }
+
         self.wind_e += 1;
         if self.wind_e == BUF_SIZE {
             self.wind_e = 0;
         }
+
         self.wind_b += 1;
         if self.wind_b == BUF_SIZE {
             self.wind_b = 0;
@@ -254,16 +255,16 @@ impl LookbackMatch {
     }
 }
 
+/// Circular buffer caching enough data to access the maximum lookback
+/// distance of 48K + maximum match length of 2K. An additional 2K is
+/// allocated so the start of the buffer may be replicated at the end,
+/// therefore providing efficient circular access.
+type Window = [u8; BUF_SIZE + MAX_MATCH_LEN];
+
 pub struct Dict {
     match3: Match3,
     match2: Match2,
-
-    /* Circular buffer caching enough data to access the maximum lookback
-     * distance of 48K + maximum match length of 2K. An additional 2K is
-     * allocated so the start of the buffer may be replicated at the end,
-     * therefore providing efficient circular access.
-     */
-    buffer: [u8; BUF_SIZE + MAX_MATCH_LEN],
+    buffer: Window,
 }
 
 impl Default for Dict {
@@ -287,22 +288,22 @@ impl Dict {
     }
 
     fn reset_next_input_entry(&mut self, s: &mut State) {
-        /* Remove match from about-to-be-clobbered buffer entry */
+        // Remove match from about-to-be-clobbered buffer entry
         if s.cycle1_countdown == 0 {
-            self.match3.remove(s.wind_e, &self.buffer[..]);
-            self.match2.remove(s.wind_e, &self.buffer[..]);
+            self.match3.remove(s.wind_e, &self.buffer);
+            self.match2.remove(s.wind_e, &self.buffer);
         } else {
             s.cycle1_countdown -= 1;
         }
     }
 
-    unsafe fn advance(&mut self, s: &mut State, lb: &mut LookbackMatch, skip: bool) {
+    fn advance(&mut self, s: &mut State, lb: &mut LookbackMatch, skip: bool) {
         if skip {
             for _ in 1..lb.len {
                 self.reset_next_input_entry(s);
                 self.match3.skip_advance(s, &self.buffer);
                 self.match2.add(s.wind_b as u16, &self.buffer);
-                s.get_byte(self.buffer.as_mut_ptr());
+                s.get_byte(&mut self.buffer);
             }
         }
 
@@ -351,9 +352,9 @@ impl Dict {
                 }
             }
             self.match3.best_len[s.wind_b] = lb.len as u16;
-            for i in 2..MaxMatchByLengthLen {
-                lb.best_off[i] = if best_pos[i] > 0 {
-                    s.pos2off(best_pos[i].wrapping_sub(1))
+            for (off, &pos) in lb.best_off[2..].iter_mut().zip(&best_pos[2..]) {
+                *off = if pos > 0 {
+                    s.pos2off(pos.wrapping_sub(1))
                 } else {
                     0
                 };
@@ -364,7 +365,7 @@ impl Dict {
 
         self.match2.add(s.wind_b as u16, &self.buffer);
 
-        s.get_byte(self.buffer.as_mut_ptr());
+        s.get_byte(&mut self.buffer);
 
         if at_end {
             s.buf_sz = 0;
@@ -373,7 +374,7 @@ impl Dict {
         } else {
             s.buf_sz = s.wind_sz + 1;
         }
-        s.bufp = s.inp.sub(s.buf_sz);
+        s.bufp = s.inp - s.buf_sz;
     }
 }
 
@@ -822,18 +823,18 @@ unsafe fn compress_internal(
     dict: &mut Dict,
 ) -> Result<usize, Error> {
     dict.reset();
-    let mut s = State::new(src, src_size, dict);
+    let mut s = State::new(std::slice::from_raw_parts(src, src_size), &mut dict.buffer);
     let mut outp = dst;
     let outp_end = outp.add(dst_size);
     let mut lit_len = 0;
-    let mut lit_ptr = s.inp;
+    let mut lit_ptr = src.add(s.inp);
 
     let mut lb = LookbackMatch::new();
     dict.advance(&mut s, &mut lb, false);
 
     while s.buf_sz > 0 {
         if lit_len == 0 {
-            lit_ptr = s.bufp;
+            lit_ptr = src.add(s.bufp);
         }
         #[allow(clippy::if_same_then_else)]
         if lb.len < 2
