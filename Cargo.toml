@@ -18,6 +18,7 @@ include = [
     "/benches",
     "/rust-toolchain.toml",
     "/src",
+    "/scripts/pgo_profile.py",
     "/lzallright.pyi",
     "/tests/*.py",
     "!__pycache__",

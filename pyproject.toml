@@ -37,6 +37,7 @@ build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
 module-name = "lzallright._lzallright"
+pgo-command = "python scripts/pgo_profile.py"
 features = [
   "pyo3/extension-module",  # This is an extension module
   "pyo3/abi3-py311"         # https://docs.python.org/3/c-api/stable.html
