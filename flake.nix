@@ -88,9 +88,11 @@
       checks = forAllSystems (
         system:
         let
-          inherit (nixpkgsFor.${system}.python3Packages) lzallright;
+          pkgs = nixpkgsFor.${system};
+          inherit (pkgs.python3Packages) lzallright;
+          freethreaded = lzallright.override { python = pkgs.python314FreeThreading; };
         in
-        lzallright.passthru.tests
+        lzallright.passthru.tests // { pytest-freethreaded = freethreaded.passthru.tests.pytest; }
       );
 
       packages = forAllSystems (
