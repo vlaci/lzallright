@@ -402,134 +402,7 @@ fn mismatch(a: &[u8], b: &[u8]) -> usize {
         .map_or(n, |p| i + p)
 }
 
-macro_rules! needs_out {
-    ($outp:expr, $outp_end:ident, $dst:expr, $dst_size:expr, $count:expr) => {{
-        if $count > $outp_end.offset_from($outp) as usize {
-            *$dst_size = $outp.offset_from($dst) as usize;
-            return Err(Error::new(ErrorKind::OutputOverrun, *$dst_size));
-        }
-    }};
-}
-
-macro_rules! write_zero_byte_length {
-    ($outp:expr, $length:expr) => {{
-        let mut l = $length;
-        while l > 255 {
-            **$outp = 0;
-            *$outp = (*$outp).add(1);
-            l -= 255;
-        }
-        **$outp = l as u8;
-        *$outp = (*$outp).add(1);
-    }};
-}
-
 const Max255Count: usize = !0usize / 255 - 2;
-
-unsafe fn encode_literal_run(
-    outp: *mut *mut u8,
-    outp_end: *const u8,
-    dst: *const u8,
-    dst_size: *mut usize,
-    lit_ptr: *const u8,
-    lit_len: usize,
-) -> Result<(), Error> {
-    if (*outp).offset_from(dst) == 0 && lit_len <= 238 {
-        needs_out!(*outp, outp_end, dst, dst_size, 1);
-        **outp = 17 + lit_len as u8;
-        *outp = (*outp).add(1);
-    } else if lit_len <= 3 {
-        *(*outp).sub(2) |= lit_len as u8;
-    } else if lit_len <= 18 {
-        needs_out!(*outp, outp_end, dst, dst_size, 1);
-        **outp = lit_len as u8 - 3;
-        *outp = (*outp).add(1);
-    } else {
-        needs_out!(*outp, outp_end, dst, dst_size, (lit_len - 18) / 255 + 2);
-        **outp = 0;
-        *outp = (*outp).add(1);
-        write_zero_byte_length!(outp, lit_len - 18);
-    }
-    needs_out!(*outp, outp_end, dst, dst_size, lit_len);
-
-    std::ptr::copy_nonoverlapping(lit_ptr, *outp, lit_len);
-
-    //out[*outp..*outp + lit_len].copy_from_slice(lit);
-    *outp = (*outp).add(lit_len);
-    //*outp += lit_len;
-    Ok(())
-}
-
-unsafe fn encode_lookback_match(
-    outp: *mut *mut u8,
-    outp_end: *const u8,
-    dst: *const u8,
-    dst_size: *mut usize,
-    mut lb_len: usize,
-    mut lb_off: usize,
-    last_lit_len: usize,
-) -> Result<(), Error> {
-    if lb_len == 2 {
-        lb_off -= 1;
-        needs_out!(*outp, outp_end, dst, dst_size, 2);
-        **outp = (M1Marker | ((lb_off & 0x3) << 2)) as u8;
-        *outp = (*outp).add(1);
-        **outp = (lb_off >> 2) as u8;
-        *outp = (*outp).add(1);
-    } else if lb_len <= M2MaxLen && lb_off <= M2MaxOffset {
-        lb_off -= 1;
-        needs_out!(*outp, outp_end, dst, dst_size, 2);
-        **outp = ((lb_len - 1) << 5 | ((lb_off & 0x7) << 2)) as u8;
-        *outp = (*outp).add(1);
-        **outp = (lb_off >> 3) as u8;
-        *outp = (*outp).add(1);
-    } else if lb_len == M2MinLen && lb_off <= M1MaxOffset + M2MaxOffset && last_lit_len >= 4 {
-        lb_off -= 1 + M2MaxOffset;
-        needs_out!(*outp, outp_end, dst, dst_size, 2);
-        **outp = (M1Marker | ((lb_off & 0x3) << 2)) as u8;
-        *outp = (*outp).add(1);
-        **outp = (lb_off >> 2) as u8;
-        *outp = (*outp).add(1);
-    } else if lb_off <= M3MaxOffset {
-        lb_off -= 1;
-        if lb_len <= M3MaxLen {
-            needs_out!(*outp, outp_end, dst, dst_size, 1);
-            **outp = (M3Marker | (lb_len - 2)) as u8;
-            *outp = (*outp).add(1);
-        } else {
-            lb_len -= M3MaxLen;
-            needs_out!(*outp, outp_end, dst, dst_size, lb_len / 255 + 2);
-            **outp = M3Marker as u8;
-            *outp = (*outp).add(1);
-            write_zero_byte_length!(outp, lb_len);
-        }
-        needs_out!(*outp, outp_end, dst, dst_size, 2);
-        **outp = (lb_off << 2) as u8;
-        *outp = (*outp).add(1);
-        **outp = (lb_off >> 6) as u8;
-        *outp = (*outp).add(1);
-    } else {
-        lb_off -= 0x4000;
-        if lb_len <= M4MaxLen {
-            needs_out!(*outp, outp_end, dst, dst_size, 1);
-            **outp = (M4Marker | ((lb_off & 0x4000) >> 11) | (lb_len - 2)) as u8;
-            *outp = (*outp).add(1);
-        } else {
-            lb_len -= M4MaxLen;
-            needs_out!(*outp, outp_end, dst, dst_size, lb_len / 255 + 2);
-            **outp = (M4Marker | ((lb_off & 0x4000) >> 11)) as u8;
-            *outp = (*outp).add(1);
-            write_zero_byte_length!(outp, lb_len);
-        }
-        needs_out!(*outp, outp_end, dst, dst_size, 2);
-        **outp = (lb_off << 2) as u8;
-        *outp = (*outp).add(1);
-        **outp = (lb_off >> 6) as u8;
-        *outp = (*outp).add(1);
-    }
-
-    Ok(())
-}
 
 struct Decoder<'a> {
     src: &'a [u8],
@@ -813,36 +686,125 @@ pub fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
     }
 }
 
-pub fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, Error> {
-    unsafe { compress_internal(src.as_ptr(), src.len(), out.as_mut_ptr(), out.len(), dict) }
+struct Writer<'a> {
+    buf: &'a mut [u8],
+    pos: usize,
 }
 
-unsafe fn compress_internal(
-    src: *const u8,
-    src_size: usize,
-    dst: *mut u8,
-    mut dst_size: usize,
-    dict: &mut Dict,
-) -> Result<usize, Error> {
+impl<'a> Writer<'a> {
+    fn new(buf: &'a mut [u8]) -> Self {
+        Self { buf, pos: 0 }
+    }
+
+    #[inline]
+    fn reserve(&self, count: usize) -> Result<(), Error> {
+        if count > self.buf.len() - self.pos {
+            Err(Error::new(ErrorKind::OutputOverrun, self.pos))
+        } else {
+            Ok(())
+        }
+    }
+
+    #[inline]
+    fn write_byte(&mut self, byte: u8) {
+        self.buf[self.pos] = byte;
+        self.pos += 1;
+    }
+
+    fn write_zero_byte_length(&mut self, mut len: usize) {
+        while len > 255 {
+            self.write_byte(0);
+            len -= 255;
+        }
+        self.write_byte(len as u8);
+    }
+
+    fn encode_literal_run(&mut self, lit: &[u8]) -> Result<(), Error> {
+        let lit_len = lit.len();
+        if self.pos == 0 && lit_len <= 238 {
+            self.reserve(1)?;
+            self.write_byte(17 + lit_len as u8);
+        } else if lit_len <= 3 {
+            self.buf[self.pos - 2] |= lit_len as u8;
+        } else if lit_len <= 18 {
+            self.reserve(1)?;
+            self.write_byte(lit_len as u8 - 3);
+        } else {
+            self.reserve((lit_len - 18) / 255 + 2)?;
+            self.write_byte(0);
+            self.write_zero_byte_length(lit_len - 18);
+        }
+        self.reserve(lit_len)?;
+        self.buf[self.pos..self.pos + lit_len].copy_from_slice(lit);
+        self.pos += lit_len;
+        Ok(())
+    }
+
+    fn encode_lookback_match(
+        &mut self,
+        mut lb_len: usize,
+        mut lb_off: usize,
+        last_lit_len: usize,
+    ) -> Result<(), Error> {
+        if lb_len == 2 {
+            lb_off -= 1;
+            self.reserve(2)?;
+            self.write_byte((M1Marker | ((lb_off & 0x3) << 2)) as u8);
+            self.write_byte((lb_off >> 2) as u8);
+        } else if lb_len <= M2MaxLen && lb_off <= M2MaxOffset {
+            lb_off -= 1;
+            self.reserve(2)?;
+            self.write_byte(((lb_len - 1) << 5 | ((lb_off & 0x7) << 2)) as u8);
+            self.write_byte((lb_off >> 3) as u8);
+        } else if lb_len == M2MinLen && lb_off <= M1MaxOffset + M2MaxOffset && last_lit_len >= 4 {
+            lb_off -= 1 + M2MaxOffset;
+            self.reserve(2)?;
+            self.write_byte((M1Marker | ((lb_off & 0x3) << 2)) as u8);
+            self.write_byte((lb_off >> 2) as u8);
+        } else {
+            let (marker, max_len) = if lb_off <= M3MaxOffset {
+                lb_off -= 1;
+                (M3Marker, M3MaxLen)
+            } else {
+                lb_off -= 0x4000;
+                (M4Marker | ((lb_off & 0x4000) >> 11), M4MaxLen)
+            };
+            if lb_len <= max_len {
+                self.reserve(1)?;
+                self.write_byte((marker | (lb_len - 2)) as u8);
+            } else {
+                lb_len -= max_len;
+                self.reserve(lb_len / 255 + 2)?;
+                self.write_byte(marker as u8);
+                self.write_zero_byte_length(lb_len);
+            }
+            self.reserve(2)?;
+            self.write_byte((lb_off << 2) as u8);
+            self.write_byte((lb_off >> 6) as u8);
+        }
+        Ok(())
+    }
+}
+
+pub fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, Error> {
     dict.reset();
-    let mut s = State::new(std::slice::from_raw_parts(src, src_size), &mut dict.buffer);
-    let mut outp = dst;
-    let outp_end = outp.add(dst_size);
+    let mut s = State::new(src, &mut dict.buffer);
+    let mut writer = Writer::new(out);
     let mut lit_len = 0;
-    let mut lit_ptr = src.add(s.inp);
+    let mut lit_pos = s.inp;
 
     let mut lb = LookbackMatch::new();
     dict.advance(&mut s, &mut lb, false);
 
     while s.buf_sz > 0 {
         if lit_len == 0 {
-            lit_ptr = src.add(s.bufp);
+            lit_pos = s.bufp;
         }
         #[allow(clippy::if_same_then_else)]
         if lb.len < 2
             || (lb.len == 2 && (lb.off > M1MaxOffset || lit_len == 0 || lit_len >= 4))
-            || (lb.len == 2 && outp == dst)
-            || (outp == dst && lit_len == 0)
+            || (lb.len == 2 && writer.pos == 0)
+            || (writer.pos == 0 && lit_len == 0)
         {
             lb.len = 0;
         } else if lb.len == M2MinLen && lb.off > M1MaxOffset + M2MaxOffset && lit_len >= 4 {
@@ -854,32 +816,21 @@ unsafe fn compress_internal(
             continue;
         }
         lb.find_better_match();
-        encode_literal_run(&mut outp, outp_end, dst, &mut dst_size, lit_ptr, lit_len)?;
-        encode_lookback_match(
-            &mut outp,
-            outp_end,
-            dst,
-            &mut dst_size,
-            lb.len,
-            lb.off,
-            lit_len,
-        )?;
+        writer.encode_literal_run(&src[lit_pos..lit_pos + lit_len])?;
+        writer.encode_lookback_match(lb.len, lb.off, lit_len)?;
         lit_len = 0;
         dict.advance(&mut s, &mut lb, true);
     }
-    encode_literal_run(&mut outp, outp_end, dst, &mut dst_size, lit_ptr, lit_len)?;
+
+    writer.encode_literal_run(&src[lit_pos..lit_pos + lit_len])?;
 
     /* Terminating M4 */
-    needs_out!(outp, outp_end, dst, &mut dst_size, 3);
-    *outp = (M4Marker | 1) as u8;
-    outp = outp.add(1);
-    *outp = 0;
-    outp = outp.add(1);
-    *outp = 0;
-    outp = outp.add(1);
+    writer.reserve(3)?;
+    writer.write_byte((M4Marker | 1) as u8);
+    writer.write_byte(0);
+    writer.write_byte(0);
 
-    dst_size = outp.offset_from(dst) as usize;
-    Ok(dst_size)
+    Ok(writer.pos)
 }
 
 #[cfg(test)]
