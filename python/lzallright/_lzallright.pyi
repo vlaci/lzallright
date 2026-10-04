@@ -1,12 +1,4 @@
-from array import array
-from mmap import mmap
-from typing import Optional, Tuple, Union
-
-import typing_extensions
-
-_BufferType: typing_extensions.TypeAlias = Union[
-    array[int], bytes, bytearray, memoryview, mmap
-]
+from typing_extensions import Buffer
 
 class LZOCompressor:
     """Object containing the compressor state.
@@ -15,7 +7,7 @@ class LZOCompressor:
         It is not allowed to pass instances of this class between threads.
     """
 
-    def compress(self, data: _BufferType) -> bytes:
+    def compress(self, data: Buffer) -> bytes:
         """Compresses data.
 
         Subsequent invocations of this method reuses the compression state.  In other
@@ -30,7 +22,7 @@ class LZOCompressor:
             function.
         """
     @staticmethod
-    def decompress(data: _BufferType, output_size_hint: Optional[int] = None) -> bytes:
+    def decompress(data: Buffer, output_size_hint: int | None = None) -> bytes:
         """Decompresses data.
 
         Args:
@@ -65,7 +57,7 @@ class EResult:
 class LZOError(Exception):
     """Fatal error during compression/decompression."""
 
-    args: Tuple[EResult]
+    args: tuple[EResult]
     """Error reason.
 
     See [`EResult`][lzallright._lzallright.EResult]"""
@@ -73,7 +65,7 @@ class LZOError(Exception):
 class InputNotConsumed(LZOError):  # noqa: N818
     """Decompression finished with leftover data."""
 
-    args: Tuple[EResult, bytes]  # type: ignore[assignment]
+    args: tuple[EResult, bytes]  # type: ignore[assignment]
     """Error reason, with decompressed data
 
     ``(EResult.InputNotConsumed, decompressed: bytes)``

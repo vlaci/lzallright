@@ -33,10 +33,10 @@ crate-type = [
 [dependencies]
 cxx = "1.0.94"
 lzokay-sys = { path = "./lzokay-sys" }
-pyo3 = "0.25.0"
+pyo3 = "0.29"
 
 [dev-dependencies]
-criterion = "0.7"
+criterion = "0.8"
 
 [[bench]]
 name = "compress"
@@ -52,8 +52,8 @@ version = "0.2.5"
 authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.66"
-description = "A Python 3.8+ binding for LZ👌(lzokay) library"
+rust-version = "1.88"
+description = "A Python 3.11+ binding for LZ👌(lzokay) library"
 repository = "https://github.com/vlaci/lzallright"
 homepage = "https://github.com/vlaci/lzallright"
 readme = "README.md"
