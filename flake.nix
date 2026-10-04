@@ -172,6 +172,12 @@
               gdb
               lzo
             ];
+            uvExtraArgs = [
+              "--group"
+              "test"
+              "--group"
+              "docs"
+            ];
           };
         }
       );
