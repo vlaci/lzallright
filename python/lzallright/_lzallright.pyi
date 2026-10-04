@@ -1,11 +1,4 @@
-from array import array
-from mmap import mmap
-
-import typing_extensions
-
-_BufferType: typing_extensions.TypeAlias = (
-    array[int] | bytes | bytearray | memoryview | mmap
-)
+from typing_extensions import Buffer
 
 class LZOCompressor:
     """Object containing the compressor state.
@@ -14,7 +7,7 @@ class LZOCompressor:
         It is not allowed to pass instances of this class between threads.
     """
 
-    def compress(self, data: _BufferType) -> bytes:
+    def compress(self, data: Buffer) -> bytes:
         """Compresses data.
 
         Subsequent invocations of this method reuses the compression state.  In other
@@ -29,7 +22,7 @@ class LZOCompressor:
             function.
         """
     @staticmethod
-    def decompress(data: _BufferType, output_size_hint: int | None = None) -> bytes:
+    def decompress(data: Buffer, output_size_hint: int | None = None) -> bytes:
         """Decompresses data.
 
         Args:

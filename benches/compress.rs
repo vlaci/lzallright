@@ -6,7 +6,7 @@ use std::io::Write;
 
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
 use lzallright::LZOCompressor;
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyBytes};
 
 pub const LOREM: &[u8] = include_bytes!("lorem.txt");
 
@@ -35,7 +35,7 @@ pub fn compress(c: &mut Criterion) {
                 Python::attach(|py| {
                     let mut comp = LZOCompressor::new();
                     b.iter_batched(
-                        || data[0..size].into(),
+                        || PyBytes::new(py, &data[0..size]).into(),
                         |data| comp.compress(py, black_box(data)),
                         BatchSize::SmallInput,
                     );
@@ -56,7 +56,7 @@ pub fn decompress(c: &mut Criterion) {
 
         let data = Python::attach(|py| {
             let mut comp = LZOCompressor::new();
-            comp.compress(py, data[0..sample_size].into())
+            comp.compress(py, PyBytes::new(py, &data[0..sample_size]).into())
                 .unwrap()
                 .as_bytes()
                 .to_owned()
@@ -69,7 +69,7 @@ pub fn decompress(c: &mut Criterion) {
             |b, &size| {
                 Python::attach(|py| {
                     b.iter_batched(
-                        || data[..].into(),
+                        || PyBytes::new(py, &data).into(),
                         |data| LZOCompressor::decompress(py, black_box(data), Some(size)),
                         BatchSize::SmallInput,
                     );
@@ -82,7 +82,7 @@ pub fn decompress(c: &mut Criterion) {
             |b, &_size| {
                 Python::attach(|py| {
                     b.iter_batched(
-                        || data[..].into(),
+                        || PyBytes::new(py, &data).into(),
                         |data| LZOCompressor::decompress(py, black_box(data), None),
                         BatchSize::SmallInput,
                     );

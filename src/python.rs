@@ -1,60 +1,43 @@
-use pyo3::{ffi, prelude::*};
+use pyo3::{exceptions::PyTypeError, ffi, prelude::*, types::PyBytes};
 
-use std::{
-    ffi::{c_int, c_void},
-    ops::Deref,
-    ptr, slice,
-};
+use std::ops::Deref;
 
-pub struct Buffer<'a>(&'a [u8]);
+pub struct Buffer<'py>(Bound<'py, PyBytes>);
 
-impl<'a> From<&'a [u8]> for Buffer<'a> {
-    fn from(data: &'a [u8]) -> Self {
-        Buffer(data)
+impl<'py> Buffer<'py> {
+    fn new(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        // PyBytes_FromObject also accepts iterables of ints; only take buffers.
+        if unsafe { ffi::PyObject_CheckBuffer(ob.as_ptr()) } == 0 {
+            return Err(PyTypeError::new_err(format!(
+                "a bytes-like object is required, not {}",
+                ob.get_type()
+            )));
+        }
+        // SAFETY: `ob` is a valid object; PyBytes_FromObject returns a new reference
+        // to a `bytes` object, or NULL with an exception set.
+        unsafe { Bound::from_owned_ptr_or_err(ob.py(), ffi::PyBytes_FromObject(ob.as_ptr())) }
+            .map(|b| Buffer(unsafe { b.cast_into_unchecked() }))
     }
 }
 
 impl Deref for Buffer<'_> {
     type Target = [u8];
 
-    fn deref(&self) -> &Self::Target {
-        self.0
+    fn deref(&self) -> &[u8] {
+        self.0.as_bytes()
     }
 }
 
-impl<'a, 'py> FromPyObject<'a, 'py> for Buffer<'a> {
+impl<'py> From<Bound<'py, PyBytes>> for Buffer<'py> {
+    fn from(data: Bound<'py, PyBytes>) -> Self {
+        Buffer(data)
+    }
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for Buffer<'py> {
     type Error = PyErr;
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        let mut buf = ptr::null::<u8>();
-        let mut len = 0usize;
-        let buf = unsafe {
-            error_on_minus_one(
-                ob.py(),
-                PyObject_AsReadBuffer(
-                    ob.as_ptr(),
-                    &mut buf as *mut *const _ as *mut *const c_void,
-                    &mut len as *mut _ as *mut isize,
-                ),
-            )?;
-            slice::from_raw_parts(buf, len)
-        };
-        Ok(Buffer(buf))
-    }
-}
-
-extern "C" {
-    fn PyObject_AsReadBuffer(
-        obj: *mut ffi::PyObject,
-        buffer: *mut *const c_void,
-        buffer_len: *mut ffi::Py_ssize_t,
-    ) -> c_int;
-}
-#[inline]
-fn error_on_minus_one(py: Python, result: i32) -> PyResult<()> {
-    if result == -1 {
-        Err(PyErr::fetch(py))
-    } else {
-        Ok(())
+        Buffer::new(&ob)
     }
 }

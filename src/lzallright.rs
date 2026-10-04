@@ -52,12 +52,17 @@ impl LZOCompressor {
         }
     }
 
-    pub fn compress<'a>(&mut self, py: Python<'a>, data: Buffer) -> PyResult<Bound<'a, PyBytes>> {
-        let max_size = data.len() + data.len() / 16 + 64 + 3;
+    pub fn compress<'a>(
+        &mut self,
+        py: Python<'a>,
+        data: Buffer<'a>,
+    ) -> PyResult<Bound<'a, PyBytes>> {
+        let src: &[u8] = &data;
+        let max_size = src.len() + src.len() / 16 + 64 + 3;
         let mut compressed_size = 0usize;
         let dst = PyByteArray::new_with(py, max_size, |dst| {
             compressed_size = py
-                .detach(|| lzokay::compress(&data, dst, &mut self.dict))
+                .detach(|| lzokay::compress(src, dst, &mut self.dict))
                 .map_err(|e| LZOError::new_err(EResult::from(&e)))?;
             Ok(())
         })?;
@@ -72,14 +77,15 @@ impl LZOCompressor {
     #[pyo3(signature = (data, output_size_hint = None))]
     pub fn decompress<'a>(
         py: Python<'a>,
-        data: Buffer,
+        data: Buffer<'a>,
         output_size_hint: Option<usize>,
     ) -> PyResult<Bound<'a, PyBytes>> {
-        let size = output_size_hint.unwrap_or(2 * data.len());
+        let src: &[u8] = &data;
+        let size = output_size_hint.unwrap_or(2 * src.len());
         let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
         let result = loop {
             let dst_bytes = unsafe { dst.as_bytes_mut() };
-            match py.detach(|| lzokay::decompress(&data, dst_bytes)) {
+            match py.detach(|| lzokay::decompress(src, dst_bytes)) {
                 Err(lzokay::Error::OutputOverrun) => {
                     dst.resize(2 * dst.len())?;
                     continue;
@@ -141,11 +147,9 @@ mod test {
 
         Python::attach(|py| {
             let mut comp = LZOCompressor::new();
-            let compressed = comp.compress(py, LOREM.into()).unwrap();
+            let compressed = comp.compress(py, PyBytes::new(py, LOREM).into()).unwrap();
 
-            let out =
-                LZOCompressor::decompress(py, compressed.as_bytes().into(), Some(LOREM.len()))
-                    .unwrap();
+            let out = LZOCompressor::decompress(py, compressed.into(), Some(LOREM.len())).unwrap();
 
             assert_eq!(out.as_bytes(), LOREM);
         });
@@ -156,7 +160,8 @@ mod test {
         Python::initialize();
 
         Python::attach(|py| {
-            let err = LZOCompressor::decompress(py, LOREM.into(), None).unwrap_err();
+            let err =
+                LZOCompressor::decompress(py, PyBytes::new(py, LOREM).into(), None).unwrap_err();
             assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
         });
     }
@@ -169,9 +174,9 @@ mod test {
         Python::attach(|py| {
             let mut comp = LZOCompressor::new();
             let data = [0u8; 65536];
-            let compressed = comp.compress(py, data[..].into()).unwrap();
+            let compressed = comp.compress(py, PyBytes::new(py, &data).into()).unwrap();
 
-            let out = LZOCompressor::decompress(py, compressed.as_bytes().into(), None).unwrap();
+            let out = LZOCompressor::decompress(py, compressed.into(), None).unwrap();
 
             assert_eq!(out.as_bytes(), data);
         });
