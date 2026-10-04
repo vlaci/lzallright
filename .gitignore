@@ -4,3 +4,4 @@ result*
 __pycache__
 *.so
 /.direnv/
+/site

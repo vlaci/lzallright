@@ -97,7 +97,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: cache rust
         uses: Swatinem/rust-cache@v2
         with:
@@ -154,6 +154,12 @@ jobs:
         with:
           enable-cache: true
       - name: Setup Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Setup Free-threaded Python
+        id: python-nogil
         uses: actions/setup-python@v6
         with:
           python-version: 3.14t
@@ -177,7 +183,7 @@ jobs:
       - name: Test wheels
         if: ${{ matrix.target == 'x64' }}
         run: |
-          uv sync --no-install-project --group test
+          uv sync --no-install-project --group test --python "${{ steps.python.outputs.python-path }}"
           uv pip install (get-item .\dist\*-cp311-abi3-*.whl).FullName
           &".\.venv\Scripts\pytest.exe"
 

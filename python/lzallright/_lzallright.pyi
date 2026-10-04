@@ -3,16 +3,15 @@ from typing_extensions import Buffer
 class LZOCompressor:
     """Object containing the compressor state.
 
+    Reusing a single instance of this class reuses compressor-memory,
+    reducing allocations.
+
     Thread safety:
         It is not allowed to pass instances of this class between threads.
     """
 
     def compress(self, data: Buffer) -> bytes:
         """Compresses data.
-
-        Subsequent invocations of this method reuses the compression state.  In other
-        words, the total output size doesn't change if you call this method using one
-        big buffer or multiple small ones.
 
         Args:
             data (bytes): Any python object that implements the buffer protocol

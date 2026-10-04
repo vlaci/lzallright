@@ -57,7 +57,8 @@
         let
           cmLib = crane-maturin.mkLib crane final;
 
-          assetFilter = path: _type: builtins.match ".*(benches|benches/.*\.txt)$" path != null;
+          assetFilter =
+            path: _type: builtins.match ".*/benches(/corpus)?(/[^/]+\\.(txt|c|json|log))?$" path != null;
           cppFilter = path: _type: builtins.match ".*(h|c)pp$" path != null;
           pyFilter =
             path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
@@ -95,11 +96,47 @@
       packages = forAllSystems (
         system:
         let
-          inherit (nixpkgsFor.${system}.python3Packages) lzallright;
+          pkgs = nixpkgsFor.${system};
+          inherit (pkgs.python3Packages) lzallright;
         in
         {
           inherit lzallright;
           default = lzallright;
+          bench-corpus = pkgs.callPackage ./benches/corpus { };
+
+          silesia =
+            pkgs.runCommand "silesia"
+              {
+                nativeBuildInputs = [ pkgs.unzip ];
+                src = pkgs.fetchurl {
+                  url = "https://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip";
+                  sha256 = "0626e25f45c0ffb5dc801f13b7c82a3b75743ba07e3a71835a41e3d9f63c77af";
+                };
+              }
+              ''
+                mkdir -p $out
+                unzip -q $src -d $out/silesia
+              '';
+        }
+      );
+
+      apps = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgsFor.${system};
+          corpus = self.packages.${system}.bench-corpus;
+        in
+        {
+          update-bench-corpus = {
+            type = "app";
+            meta.description = "Regenerate benches/corpus from pinned upstream sources";
+            program = pkgs.lib.getExe (
+              pkgs.writeShellApplication {
+                name = "update-bench-corpus";
+                text = "install -m 0644 -t benches/corpus ${corpus}/*";
+              }
+            );
+          };
         }
       );
 
@@ -113,6 +150,7 @@
             packages = with pkgs; [
               cargo-msrv
               cargo-fuzz
+              cargo-nextest
               (rust-bin.selectLatestNightlyWith (
                 toolchain:
                 toolchain.default.override {
@@ -133,6 +171,12 @@
               python3Packages.autoPatchelfVenvShellHook
               gdb
               lzo
+            ];
+            uvExtraArgs = [
+              "--group"
+              "test"
+              "--group"
+              "docs"
             ];
           };
         }

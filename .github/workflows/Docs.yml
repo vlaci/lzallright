@@ -7,28 +7,42 @@ on:
 
     paths:
       - "docs/**"
-      - "mkdocs.yml"
+      - "python/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "zensical.toml"
       - ".github/workflows/Docs.yml"
 
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/configure-pages@v5
       - uses: actions/checkout@v7
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
           python-version-file: ".python-version"
       - run: |
-          uv sync --no-install-project --group docs
-          uv run mkdocs gh-deploy --force
+          uv sync --no-install-project --only-group docs
+          uv run --no-sync zensical build --clean
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment

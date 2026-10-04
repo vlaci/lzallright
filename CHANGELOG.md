@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-This project uses [_towncrier_](https://towncrier.readthedocs.io/) and the changes for the upcoming release can be found in <https://github.com/vlaci/lzallright/tree/main/changelog.d/>.
-
 <!-- --8<-- [start:changelog] -->
 
-<!-- towncrier release notes start -->
+## [Unreleased]
+
+### Changed
+
+- Updated PyO3 to 0.29; MSRV is bumped to 1.83
+- Minimum supported Python version is now 3.11. Free-threaded wheels are built for 3.14t. x86_64 macOS wheels are no longer published.
 
 ## [0.2.6](https://github.com/vlaci/lzallright/tree/v0.2.6) - 2025-06-27
 
