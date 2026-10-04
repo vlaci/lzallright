@@ -33,11 +33,11 @@
     },
     "crane-maturin": {
       "locked": {
-        "lastModified": 1791067820,
-        "narHash": "sha256-ssph7xBq5Merei3/029GFLka4PF2Xyho92Fu7Cqxr7Y=",
+        "lastModified": 1791102264,
+        "narHash": "sha256-ja7Uk5tkhDe6ByHAFxA0gGFEJ7z0J8ewk+hEAGC7Gd8=",
         "owner": "vlaci",
         "repo": "crane-maturin",
-        "rev": "0b185f462ccc46d663826528e1f895cbe2bd9b49",
+        "rev": "dff3f48302e96e73328072a4b1c1c15d9d8d7742",
         "type": "github"
       },
       "original": {
@@ -98,11 +98,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791013993,
-        "narHash": "sha256-BiFPwFsbFnZH5GfWbQFKYuQNg+67aNQCoRSRNTeJFQc=",
+        "lastModified": 1791101754,
+        "narHash": "sha256-y/GF+9B0t0TZ0nQiSRMqDXpr76yT7sdDbS/3GNLhzkE=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "7470661ba2b51156048af08464b82020223dc942",
+        "rev": "dbc715a4b7c0ace63b9769a032d1dd34cd89e5bd",
         "type": "github"
       },
       "original": {
