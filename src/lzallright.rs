@@ -2,8 +2,8 @@ use std::sync::{Mutex, PoisonError};
 
 use pyo3::{create_exception, exceptions::PyMemoryError, prelude::*, types::PyBytes};
 
-use crate::backend;
 use crate::error::{Error, ErrorKind};
+use crate::lzo;
 use crate::python::{zeroed, Buffer};
 
 #[pyclass(eq, eq_int, frozen, module = "lzallright._lzallright")]
@@ -41,7 +41,7 @@ fn lzo_error(e: &Error) -> PyErr {
 
 #[pyclass(frozen, module = "lzallright._lzallright")]
 pub struct LZOCompressor {
-    dict: Mutex<Box<backend::Dict>>,
+    dict: Mutex<Box<lzo::Dict>>,
 }
 
 #[pymethods]
@@ -63,7 +63,7 @@ impl LZOCompressor {
             let mut dst = zeroed(worst)?;
             // Lock without the GIL: a waiting thread never blocks the holder.
             let mut dict = self.dict.lock().unwrap_or_else(PoisonError::into_inner);
-            let size = backend::compress(src, &mut dst, &mut dict).map_err(|e| lzo_error(&e))?;
+            let size = lzo::compress(src, &mut dst, &mut dict).map_err(|e| lzo_error(&e))?;
             Ok((dst, size))
         })?;
         Ok(PyBytes::new(py, &dst[..size]))
@@ -88,7 +88,7 @@ impl LZOCompressor {
             // Decompress straight into the result: an exact size hint needs no copy.
             let mut result = Ok(0);
             let out = PyBytes::new_with(py, size, |buf| {
-                result = py.detach(|| backend::decompress(src, buf));
+                result = py.detach(|| lzo::decompress(src, buf));
                 Ok(())
             })?;
             return match result {

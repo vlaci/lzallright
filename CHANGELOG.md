@@ -10,8 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Reimplemented the C++ lzokay based code in Safe Rust. Building no longer needs a C++ toolchain.
 - Updated PyO3 to 0.29; MSRV is bumped to 1.83
 - Minimum supported Python version is now 3.11. Free-threaded wheels are built for 3.14t. x86_64 macOS wheels are no longer published.
+
+### Fixed
+
+- Compressing empty input now produces a valid LZO stream; previously it could not be decompressed.
+- Inputs other than `bytes` are copied before the GIL is released. Writing to the source buffer during compression or decompression, for example through the `bytearray` behind a read-only `memoryview`, could previously corrupt the result.
 
 ## [0.2.6](https://github.com/vlaci/lzallright/tree/v0.2.6) - 2025-06-27
 

@@ -1,7 +1,5 @@
-//! Backend-agnostic tests; run with and without `--features lzokay`.
-
-use lzallright::backend::{compress, decompress, Dict};
 use lzallright::error::ErrorKind;
+use lzallright::lzo::{compress, decompress, Dict};
 
 fn noise(len: usize, alphabet: u64) -> Vec<u8> {
     let mut x = 0x9E37_79B9_7F4A_7C15u64 ^ len as u64;
@@ -48,13 +46,6 @@ fn reused_dict_matches_fresh_dict(data: &[u8]) {
     assert!(lzo_compress(data, &mut reused) == lzo_compress(data, &mut Dict::new()));
 }
 
-#[cfg(feature = "lzokay")]
-fn native_compressor_matches_lzokay(data: &[u8]) {
-    let mut out = vec![0; data.len() + data.len() / 16 + 64 + 3];
-    let len = lzallright::lzo::compress(data, &mut out, &mut lzallright::lzo::Dict::new()).unwrap();
-    assert!(out[..len] == lzo_compress(data, &mut Dict::new()));
-}
-
 macro_rules! inputs {
     ($($name:ident => $data:expr,)*) => {$(
         mod $name {
@@ -72,12 +63,6 @@ macro_rules! inputs {
             #[test]
             fn reused_dict_matches_fresh_dict() {
                 super::reused_dict_matches_fresh_dict(&data());
-            }
-
-            #[cfg(feature = "lzokay")]
-            #[test]
-            fn native_compressor_matches_lzokay() {
-                super::native_compressor_matches_lzokay(&data());
             }
         }
     )*};
@@ -199,15 +184,8 @@ fn trailing_input_reports_decoded_size() {
     );
 }
 
-// Crashing test samples found by running `cargo fuzz decompress`
-// in the C++ lzokay library (out-of-bounds reads during
-// zero-byte-length scanning and lookbehind pointer arithmetic).
-//
-// Run under AddressSanitizer (C++ & Rust):
-//
-//     CXXFLAGS="-fsanitize=address" RUSTFLAGS="-Zsanitizer=address" \
-//       cargo test -Zbuild-std --target x86_64-unknown-linux-gnu \
-//       -- lzokay::tests::fuzz_crash_
+// Inputs that crashed the C++ lzokay decoder under `cargo fuzz decompress`
+// (out-of-bounds reads in zero-byte-length scanning and lookbehind arithmetic).
 
 #[test]
 fn fuzz_crash_m1_zero_scan_oob() {

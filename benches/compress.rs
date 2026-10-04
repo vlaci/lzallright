@@ -4,7 +4,7 @@ use criterion::{
     criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, SamplingMode,
     Throughput,
 };
-use lzallright::{backend, LZOCompressor};
+use lzallright::{lzo, LZOCompressor};
 use pyo3::{prelude::*, types::PyBytes};
 
 const MB: usize = 1024 * 1024;
@@ -103,12 +103,12 @@ fn configure<M: criterion::measurement::Measurement>(group: &mut BenchmarkGroup<
 
 fn backend(c: &mut Criterion) {
     let inputs = inputs();
-    let mut dict = backend::Dict::new();
+    let mut dict = lzo::Dict::new();
     let compressed: Vec<Vec<u8>> = inputs
         .iter()
         .map(|(name, data)| {
             let mut out = vec![0; compress_bound(data.len())];
-            let len = backend::compress(data, &mut out, &mut dict).unwrap();
+            let len = lzo::compress(data, &mut out, &mut dict).unwrap();
             out.truncate(len);
             println!(
                 "ratio {name}: {} -> {} bytes ({:.3})",
@@ -117,7 +117,7 @@ fn backend(c: &mut Criterion) {
                 data.len() as f64 / len as f64
             );
             let mut roundtrip = vec![0; data.len()];
-            let written = backend::decompress(&out, &mut roundtrip).unwrap();
+            let written = lzo::decompress(&out, &mut roundtrip).unwrap();
             assert!(
                 written == data.len() && roundtrip == *data,
                 "{name}: round-trip mismatch"
@@ -131,7 +131,7 @@ fn backend(c: &mut Criterion) {
         configure(&mut group, data.len());
         let mut out = vec![0; compress_bound(data.len())];
         group.bench_function(BenchmarkId::from_parameter(name), |b| {
-            b.iter(|| backend::compress(black_box(data), &mut out, &mut dict).unwrap())
+            b.iter(|| lzo::compress(black_box(data), &mut out, &mut dict).unwrap())
         });
     }
     group.finish();
@@ -141,7 +141,7 @@ fn backend(c: &mut Criterion) {
         configure(&mut group, data.len());
         let mut out = vec![0; data.len()];
         group.bench_function(BenchmarkId::from_parameter(name), |b| {
-            b.iter(|| backend::decompress(black_box(compressed), &mut out).unwrap())
+            b.iter(|| lzo::decompress(black_box(compressed), &mut out).unwrap())
         });
     }
     group.finish();

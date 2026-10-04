@@ -59,12 +59,9 @@
 
           assetFilter =
             path: _type: builtins.match ".*/benches(/corpus)?(/[^/]+\\.(txt|c|json|log))?$" path != null;
-          cppFilter = path: _type: builtins.match ".*(h|c)pp$" path != null;
           pyFilter =
             path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
-          sourceFilter =
-            path: type:
-            (cppFilter path type) || (assetFilter path type) || (cmLib.filterCargoSources path type);
+          sourceFilter = path: type: (assetFilter path type) || (cmLib.filterCargoSources path type);
           testFilter = p: t: builtins.match ".*/(pyproject\.toml|tests|tests/.*\.py)$" p != null;
 
         in
@@ -159,7 +156,6 @@
                   extensions = [
                     "cargo"
                     "clippy"
-                    "miri"
                     "rust-src"
                     "rustc"
                     "rustfmt"
