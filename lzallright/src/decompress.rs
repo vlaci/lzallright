@@ -161,6 +161,19 @@ fn copy_words(window: &mut [u8], dist: usize, len: usize) {
 
 /// Decompresses the LZO stream `src` into `dst` and returns the number of
 /// bytes written.
+///
+/// # Examples
+///
+/// ```
+/// # let mut dict = lzallright::Dict::new();
+/// # let mut input = vec![0; 4];
+/// # let len = lzallright::compress(b"", &mut input, &mut dict).unwrap();
+/// # input.resize(len, 0);
+/// // let input = ...
+/// let mut output = vec![0; 64];
+/// let size = lzallright::decompress(&input, &mut output).unwrap();
+/// ```
+///
 pub fn decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
     if src.len() < 3 {
         return Err(Error::new(ErrorKind::InputOverrun, 0));

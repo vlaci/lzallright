@@ -2,9 +2,10 @@ use std::sync::{Mutex, PoisonError};
 
 use pyo3::{create_exception, exceptions::PyMemoryError, prelude::*, types::PyBytes};
 
-use crate::error::{Error, ErrorKind};
-use crate::lzo;
-use crate::python::{zeroed, Buffer};
+use lzallright::{Error, ErrorKind};
+
+mod buffer;
+use buffer::{zeroed, Buffer};
 
 #[pyclass(eq, eq_int, frozen, module = "lzallright._lzallright")]
 #[derive(Debug, PartialEq, Eq)]
@@ -24,6 +25,7 @@ impl From<&Error> for EResult {
             ErrorKind::InputOverrun => EResult::InputOverrun,
             ErrorKind::InputNotConsumed => EResult::InputNotConsumed,
             ErrorKind::Error => EResult::Error,
+            _ => EResult::Error,
         }
     }
 }
@@ -41,7 +43,7 @@ fn lzo_error(e: &Error) -> PyErr {
 
 #[pyclass(frozen, module = "lzallright._lzallright")]
 pub struct LZOCompressor {
-    dict: Mutex<Box<lzo::Dict>>,
+    dict: Mutex<Box<lzallright::Dict>>,
 }
 
 #[pymethods]
@@ -49,7 +51,7 @@ impl LZOCompressor {
     #[new]
     pub fn new() -> Self {
         Self {
-            dict: Mutex::new(Box::default()),
+            dict: Mutex::new(Box::new(lzallright::Dict::new())),
         }
     }
 
@@ -63,7 +65,7 @@ impl LZOCompressor {
             let mut dst = zeroed(worst)?;
             // Lock without the GIL: a waiting thread never blocks the holder.
             let mut dict = self.dict.lock().unwrap_or_else(PoisonError::into_inner);
-            let size = lzo::compress(src, &mut dst, &mut dict).map_err(|e| lzo_error(&e))?;
+            let size = lzallright::compress(src, &mut dst, &mut dict).map_err(|e| lzo_error(&e))?;
             Ok((dst, size))
         })?;
         Ok(PyBytes::new(py, &dst[..size]))
@@ -88,7 +90,7 @@ impl LZOCompressor {
             // Decompress straight into the result: an exact size hint needs no copy.
             let mut result = Ok(0);
             let out = PyBytes::new_with(py, size, |buf| {
-                result = py.detach(|| lzo::decompress(src, buf));
+                result = py.detach(|| lzallright::decompress(src, buf));
                 Ok(())
             })?;
             return match result {
@@ -131,7 +133,7 @@ mod test {
 
     use super::*;
 
-    pub const LOREM: &[u8] = include_bytes!("../benches/lorem.txt");
+    pub const LOREM: &[u8] = include_bytes!("../../benches/lorem.txt");
 
     #[test]
     fn test_roundtrip() {

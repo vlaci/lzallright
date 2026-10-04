@@ -1,5 +1,4 @@
-use lzallright::error::ErrorKind;
-use lzallright::lzo::{compress, decompress, Dict};
+use lzallright::{compress, decompress, Dict, ErrorKind};
 
 fn noise(len: usize, alphabet: u64) -> Vec<u8> {
     let mut x = 0x9E37_79B9_7F4A_7C15u64 ^ len as u64;
@@ -13,10 +12,10 @@ fn noise(len: usize, alphabet: u64) -> Vec<u8> {
         .collect()
 }
 
-const ALICE: &[u8] = include_bytes!("../benches/corpus/alice-pg11.txt");
-const NASA: &[u8] = include_bytes!("../benches/corpus/nasa-http-jul95.log");
-const SQLITE: &[u8] = include_bytes!("../benches/corpus/sqlite-btree.c");
-const WIKIDATA: &[u8] = include_bytes!("../benches/corpus/wikidata-Q100020.json");
+const ALICE: &[u8] = include_bytes!("../../benches/corpus/alice-pg11.txt");
+const NASA: &[u8] = include_bytes!("../../benches/corpus/nasa-http-jul95.log");
+const SQLITE: &[u8] = include_bytes!("../../benches/corpus/sqlite-btree.c");
+const WIKIDATA: &[u8] = include_bytes!("../../benches/corpus/wikidata-Q100020.json");
 
 /// Compresses into an owned buffer.
 fn lzo_compress(data: &[u8], dict: &mut Dict) -> Vec<u8> {

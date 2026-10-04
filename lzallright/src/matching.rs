@@ -1,19 +1,3 @@
-//! Match finder: at each input position, finds the longest earlier occurrence
-//! of the bytes that follow.
-//!
-//! Two hash tables index the history. `Match3` hashes the next three bytes and
-//! chains together every earlier position with the same hash, so a search
-//! walks from the newest candidate to older ones, comparing bytes as it goes.
-//!
-//! The walk stops at a match that covers the whole lookahead, at lzokay's
-//! early-exit heuristic, or after 2048 candidates. `Match2` keys directly on
-//! the next two bytes and keeps only the newest position, which suffices
-//! because a 2-byte match is worth encoding only when it is close.
-//!
-//! As the window slides, the position about to be overwritten is first
-//! dropped from both tables, so neither offers a position whose bytes are
-//! gone. [`Cursor::advance`] searches at a position; [`Cursor::skip`] only indexes
-//! the positions inside an emitted match.
 use super::consts::*;
 use super::window::Window;
 
@@ -25,6 +9,12 @@ pub struct Dict {
     match3: Match3,
     match2: Match2,
     window: Window,
+}
+
+impl Default for Dict {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// One pass of the match finder over a single input.
@@ -55,7 +45,7 @@ impl Dict {
 
     /// Clears the hash tables, loads the start of `src` into the
     /// window, and returns a cursor over the rest.
-    pub fn start<'a>(&mut self, src: &'a [u8]) -> Cursor<'_, 'a> {
+    pub(crate) fn start<'a>(&mut self, src: &'a [u8]) -> Cursor<'_, 'a> {
         self.match3.reset();
         self.match2.reset();
         let input = self.window.reset(src);

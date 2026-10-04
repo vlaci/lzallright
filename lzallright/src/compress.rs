@@ -117,8 +117,28 @@ impl<'a> Writer<'a> {
     }
 }
 
-/// Compresses `src` into `out`, using `dict` as working memory, and returns the
-/// compressed length.
+/// Compresses the content of the slice `src` into `out`, using `dict`
+/// to store compressor state.  In case of success, returns the number
+/// of bytes produced.
+///
+/// `out` must be big enough to fit the compressed data, otherwise an
+/// error is returned.
+///
+/// Allocate a buffer with size returned by [`worst_case_len`] to
+/// guarantee that the compression will succeed.
+///
+/// # Examples
+///
+/// ```
+///  use lzallright::{Dict,worst_case_len,compress};
+///  
+///  let input = b"hello";
+///  let mut output = vec![0; worst_case_len(input.len())];
+///  
+///  let mut dict = Dict::new();
+///  let size = compress(input, &mut output, &mut dict).unwrap();
+///  output.resize(size, 0);
+/// ```
 pub fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, Error> {
     let mut input = dict.start(src);
     let mut writer = Writer::new(out);
@@ -156,6 +176,11 @@ pub fn compress(src: &[u8], out: &mut [u8], dict: &mut Dict) -> Result<usize, Er
     writer.write_byte(0);
 
     Ok(writer.pos)
+}
+
+/// Returns the maximum length needed to hold the compressed data of `size`.
+pub const fn worst_case_len(size: usize) -> usize {
+    size + size / 16 + 64 + 3
 }
 
 #[cfg(test)]

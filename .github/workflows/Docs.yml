@@ -10,6 +10,7 @@ on:
       - "python/**"
       - "README.md"
       - "CHANGELOG.md"
+      - "lzallright/CHANGELOG.md"
       - "zensical.toml"
       - ".github/workflows/Docs.yml"
 
