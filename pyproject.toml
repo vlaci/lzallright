@@ -27,9 +27,8 @@ test = [
     "pytest>=9.1,<10.0"
 ]
 docs = [
-    "mkdocs>=1.6.1",
-    "mkdocstrings[python]>=1.0.6",
-    "mkdocs-material>=9.7.7"
+    "zensical>=0.0.67",
+    "mkdocstrings-python>=2.0.9"
 ]
 
 [build-system]
