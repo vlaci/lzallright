@@ -88,6 +88,9 @@ ignore = [
   "S101",    # assert:                         Enable usage of asserts
   "D1",      # undocumented-*
 ]
+"tests/examples/*" = [
+  "PT017",   # pytest-assert-in-except:        Not pytest
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

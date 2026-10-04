@@ -5,12 +5,13 @@ repo_name = "vlaci/lzallright"
 repo_url = "https://github.com/vlaci/lzallright"
 nav = [
   { "Home" = "index.md" },
+  { "Usage" = "usage.md" },
   { "API Documentation" = "api.md" },
   { "Changelog" = "changelog.md" },
 ]
 
 [project.theme]
-features = ["toc.integrate", "toc.follow", "navigation.instant", "navigation.top"]
+features = ["toc.integrate", "toc.follow", "navigation.instant", "navigation.top", "content.code.annotate"]
 
 [project.theme.font]
 text = "Open Sans"
@@ -40,6 +41,12 @@ filters = ["!^_"]
 members_order = "source"
 
 [project.markdown_extensions.pymdownx.snippets]
+
+[project.markdown_extensions.pymdownx.superfences]
+
+[project.markdown_extensions.attr_list]
+
+[project.markdown_extensions.md_in_html]
 
 [project.markdown_extensions.toc]
 permalink = "#"
