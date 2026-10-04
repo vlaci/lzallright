@@ -14,7 +14,7 @@ const KB: usize = 1024;
 const MB: usize = 1024 * KB;
 
 pub fn compress(c: &mut Criterion) {
-    pyo3::prepare_freethreaded_python();
+    Python::initialize();
     let mut group = c.benchmark_group("LZO compression");
     for sample_size in [1 * KB, 64 * KB, 256 * KB, 1 * MB, 64 * MB, 256 * MB] {
         let mut data: Vec<u8> = Vec::with_capacity(sample_size);
@@ -32,7 +32,7 @@ pub fn compress(c: &mut Criterion) {
             BenchmarkId::from_parameter(sample_size),
             &sample_size,
             |b, &size| {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let mut comp = LZOCompressor::new();
                     b.iter_batched(
                         || data[0..size].into(),
@@ -46,7 +46,7 @@ pub fn compress(c: &mut Criterion) {
     group.finish();
 }
 pub fn decompress(c: &mut Criterion) {
-    pyo3::prepare_freethreaded_python();
+    Python::initialize();
     let mut group = c.benchmark_group("LZO decompression");
     for sample_size in [1 * KB, 64 * KB, 256 * KB, 1 * MB, 64 * MB, 256 * MB] {
         let mut data: Vec<u8> = Vec::with_capacity(sample_size);
@@ -54,7 +54,7 @@ pub fn decompress(c: &mut Criterion) {
             data.write_all(LOREM).unwrap();
         }
 
-        let data = Python::with_gil(|py| {
+        let data = Python::attach(|py| {
             let mut comp = LZOCompressor::new();
             comp.compress(py, data[0..sample_size].into())
                 .unwrap()
@@ -67,7 +67,7 @@ pub fn decompress(c: &mut Criterion) {
             BenchmarkId::from_parameter(sample_size),
             &sample_size,
             |b, &size| {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     b.iter_batched(
                         || data[..].into(),
                         |data| LZOCompressor::decompress(py, black_box(data), Some(size)),
@@ -80,7 +80,7 @@ pub fn decompress(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{sample_size} no hint")),
             &sample_size,
             |b, &_size| {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     b.iter_batched(
                         || data[..].into(),
                         |data| LZOCompressor::decompress(py, black_box(data), None),

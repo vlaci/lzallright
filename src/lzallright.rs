@@ -57,14 +57,14 @@ impl LZOCompressor {
         let mut compressed_size = 0usize;
         let dst = PyByteArray::new_with(py, max_size, |dst| {
             compressed_size = py
-                .allow_threads(|| lzokay::compress(&data, dst, &mut self.dict))
+                .detach(|| lzokay::compress(&data, dst, &mut self.dict))
                 .map_err(|e| LZOError::new_err(EResult::from(&e)))?;
             Ok(())
         })?;
         dst.resize(compressed_size)?;
         // SAFETY: dst is a valid PyByteArray; PyBytes_FromObject returns a new reference.
         Ok(unsafe {
-            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
+            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).cast_into_unchecked()
         })
     }
 
@@ -79,7 +79,7 @@ impl LZOCompressor {
         let dst = PyByteArray::new_with(py, size, |_| Ok(()))?;
         let result = loop {
             let dst_bytes = unsafe { dst.as_bytes_mut() };
-            match py.allow_threads(|| lzokay::decompress(&data, dst_bytes)) {
+            match py.detach(|| lzokay::decompress(&data, dst_bytes)) {
                 Err(lzokay::Error::OutputOverrun) => {
                     dst.resize(2 * dst.len())?;
                     continue;
@@ -97,7 +97,7 @@ impl LZOCompressor {
 
         // SAFETY: dst is a valid PyByteArray; PyBytes_FromObject returns a new reference.
         let rv = unsafe {
-            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).downcast_into_unchecked()
+            Bound::from_owned_ptr(py, PyBytes_FromObject(dst.as_ptr())).cast_into_unchecked()
         };
         match result {
             Ok(_) => Ok(rv),
@@ -137,9 +137,9 @@ mod test {
 
     #[test]
     fn test_roundtrip() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let mut comp = LZOCompressor::new();
             let compressed = comp.compress(py, LOREM.into()).unwrap();
 
@@ -153,9 +153,9 @@ mod test {
 
     #[test]
     fn test_decompress_invalid_data() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let err = LZOCompressor::decompress(py, LOREM.into(), None).unwrap_err();
             assert!(err.get_type(py).is(PyType::new::<LZOError>(py)));
         });
@@ -164,9 +164,9 @@ mod test {
     #[test]
     fn test_big_compression_ratio() {
         // https://github.com/vlaci/lzallright/issues/12
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let mut comp = LZOCompressor::new();
             let data = [0u8; 65536];
             let compressed = comp.compress(py, data[..].into()).unwrap();
