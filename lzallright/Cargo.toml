@@ -9,6 +9,7 @@ license.workspace = true
 homepage.workspace = true
 repository.workspace = true
 readme.workspace = true
+categories = ["compression", "no-std", "no-std::no-alloc"]
 
 include = [
     "/src",

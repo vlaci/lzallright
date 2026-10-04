@@ -14,8 +14,8 @@ pub struct Window {
     full: bool,
 }
 
-impl Default for Window {
-    fn default() -> Self {
+impl Window {
+    pub const fn new() -> Self {
         Self {
             buf: [0; BUF_SIZE + MAX_MATCH_LEN],
             pos: 0,
@@ -33,7 +33,7 @@ impl Window {
     ///
     /// Bytes left over from a previous input stay in the buffer. They are
     /// unreachable because the matchers are reset at the same time.
-    pub fn reset<'a>(&mut self, src: &'a [u8]) -> std::slice::Iter<'a, u8> {
+    pub fn reset<'a>(&mut self, src: &'a [u8]) -> core::slice::Iter<'a, u8> {
         let (head, rest) = src.split_at(src.len().min(MAX_MATCH_LEN));
         self.buf[..head.len()].copy_from_slice(head);
         if head.len() < 3 {

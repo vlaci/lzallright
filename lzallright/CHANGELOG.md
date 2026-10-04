@@ -11,3 +11,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - Initial release: LZO1X compression and decompression Rust, ported from the C++ [LZ👌](https://github.com/jackoalan/lzokay) library.
+- `no_std` support without `alloc`.
+- `Dict::new` is `const fn`, so the dictionary can live in a `static`.
+- `Error` implements `Display` and `core::error::Error`.

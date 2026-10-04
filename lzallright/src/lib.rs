@@ -1,6 +1,5 @@
-//! The crate is started as a port of the C++ [lzokay] library.
-//!
-//! [lzokay]: https://github.com/jackoalan/lzokay
+#![doc = include_str!("../README.md")]
+#![cfg_attr(not(test), no_std)]
 
 mod compress;
 mod consts;

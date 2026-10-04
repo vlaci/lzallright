@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use core::cell::Cell;
 
 use super::consts::*;
 use crate::error::{Error, ErrorKind};

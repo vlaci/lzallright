@@ -1,10 +1,35 @@
 use super::consts::*;
 use super::window::Window;
 
-/// Working memory of the compressor: both hash tables and the window,
-/// several hundred kilobytes in all. It is safe to re-use it between
-/// `compress` calls to reduce allocations.
-#[derive(Default)]
+/// Compressor state. Contains a sliding window and two extremely
+/// simple hash-tables.
+///
+/// It is safe to re-use it between `compress` calls to reduce
+/// allocations.
+///
+/// # Examples
+///
+/// [`Dict::new`] is `const`, so it can be instantiated as a `static`
+/// without an allocator:
+///
+/// ```
+/// use core::sync::atomic::{AtomicBool, Ordering};
+/// use lzallright::Dict;
+///
+/// fn take_dict() -> Option<&'static mut Dict> {
+///     static mut DICT: Dict = Dict::new();
+///     static TAKEN: AtomicBool = AtomicBool::new(false);
+///     if TAKEN.swap(true, Ordering::AcqRel) {
+///         return None;
+///     }
+///     Some(unsafe { &mut *&raw mut DICT })
+/// }
+///
+/// let dict = take_dict().unwrap();
+/// assert!(take_dict().is_none());
+/// let mut out = [0; 64];
+/// lzallright::compress(b"hello", &mut out, dict).unwrap();
+/// ```
 pub struct Dict {
     match3: Match3,
     match2: Match2,
@@ -20,7 +45,7 @@ impl Default for Dict {
 /// One pass of the match finder over a single input.
 pub struct Cursor<'d, 's> {
     dict: &'d mut Dict,
-    input: std::slice::Iter<'s, u8>,
+    input: core::slice::Iter<'s, u8>,
 }
 
 impl Cursor<'_, '_> {
@@ -39,8 +64,12 @@ impl Cursor<'_, '_> {
 }
 
 impl Dict {
-    pub fn new() -> Self {
-        Default::default()
+    pub const fn new() -> Self {
+        Self {
+            match3: Match3::new(),
+            match2: Match2::new(),
+            window: Window::new(),
+        }
     }
 
     /// Clears the hash tables, loads the start of `src` into the
@@ -63,7 +92,7 @@ impl Dict {
     }
 
     /// Indexes the next `n` positions without searching for matches.
-    fn skip(&mut self, n: usize, input: &mut std::slice::Iter<u8>) {
+    fn skip(&mut self, n: usize, input: &mut core::slice::Iter<u8>) {
         for _ in 0..n {
             let pos = self.window.pos();
             let cur = self.window.bytes_from(pos);
@@ -77,7 +106,7 @@ impl Dict {
 
     /// Finds the best match at the current position and moves past it;
     /// `None` once the input is exhausted.
-    fn advance(&mut self, input: &mut std::slice::Iter<u8>) -> Option<LookbackMatch> {
+    fn advance(&mut self, input: &mut core::slice::Iter<u8>) -> Option<LookbackMatch> {
         let sz = self.window.lookahead().len();
         if sz == 0 {
             return None;
@@ -211,8 +240,8 @@ impl Match3 {
     }
 }
 
-impl Default for Match3 {
-    fn default() -> Self {
+impl Match3 {
+    const fn new() -> Self {
         Self {
             head: [0; HASH_SIZE],
             chain_sz: [0; HASH_SIZE],
@@ -263,11 +292,11 @@ impl Match2 {
     }
 }
 
-impl Default for Match2 {
-    fn default() -> Self {
-        Self {
-            head: [u16::MAX; 1 << 16],
-        }
+impl Match2 {
+    /// All-zero, so a `static` `Dict` goes to `.bss` instead of flash;
+    /// `Dict::start` empties the table before first use.
+    const fn new() -> Self {
+        Self { head: [0; 1 << 16] }
     }
 }
 
@@ -336,7 +365,7 @@ impl LookbackMatch {
 /// Returns the length of the common prefix of `a` and `b`.
 #[inline(always)]
 fn mismatch(a: &[u8], b: &[u8]) -> usize {
-    const WORD_SIZE: usize = std::mem::size_of::<u64>();
+    const WORD_SIZE: usize = core::mem::size_of::<u64>();
     let n = a.len().min(b.len());
     let a = &a[..n];
     let b = &b[..n];

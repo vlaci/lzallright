@@ -43,3 +43,18 @@ impl Error {
         self.dst_size
     }
 }
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let msg = match self.kind {
+            ErrorKind::LookbehindOverrun => "match refers to data before the start of the output",
+            ErrorKind::OutputOverrun => "output buffer is too small",
+            ErrorKind::InputOverrun => "input ended unexpectedly",
+            ErrorKind::Error => "malformed compressed data",
+            ErrorKind::InputNotConsumed => "trailing data after end of compressed stream",
+        };
+        write!(f, "{msg} ({} bytes written)", self.dst_size)
+    }
+}
+
+impl core::error::Error for Error {}
