@@ -1,12 +1,11 @@
 from array import array
 from mmap import mmap
-from typing import Optional, Tuple, Union
 
 import typing_extensions
 
-_BufferType: typing_extensions.TypeAlias = Union[
-    array[int], bytes, bytearray, memoryview, mmap
-]
+_BufferType: typing_extensions.TypeAlias = (
+    array[int] | bytes | bytearray | memoryview | mmap
+)
 
 class LZOCompressor:
     """Object containing the compressor state.
@@ -30,7 +29,7 @@ class LZOCompressor:
             function.
         """
     @staticmethod
-    def decompress(data: _BufferType, output_size_hint: Optional[int] = None) -> bytes:
+    def decompress(data: _BufferType, output_size_hint: int | None = None) -> bytes:
         """Decompresses data.
 
         Args:
@@ -65,7 +64,7 @@ class EResult:
 class LZOError(Exception):
     """Fatal error during compression/decompression."""
 
-    args: Tuple[EResult]
+    args: tuple[EResult]
     """Error reason.
 
     See [`EResult`][lzallright._lzallright.EResult]"""
@@ -73,7 +72,7 @@ class LZOError(Exception):
 class InputNotConsumed(LZOError):  # noqa: N818
     """Decompression finished with leftover data."""
 
-    args: Tuple[EResult, bytes]  # type: ignore[assignment]
+    args: tuple[EResult, bytes]  # type: ignore[assignment]
     """Error reason, with decompressed data
 
     ``(EResult.InputNotConsumed, decompressed: bytes)``
