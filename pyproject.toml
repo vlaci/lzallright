@@ -20,7 +20,6 @@ Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
 [dependency-groups]
 dev = [
     "ruff>=0.16,<0.17",
-    "towncrier>=24.8.0,<25.0.0",
     "ty>=0.0.84,<0.1"
 ]
 test = [
@@ -42,35 +41,6 @@ features = [
   "pyo3/extension-module",  # This is an extension module
   "pyo3/abi3-py311"         # https://docs.python.org/3/c-api/stable.html
 ]
-
-[tool.towncrier]
-directory = "changelog.d"
-filename = "CHANGELOG.md"
-start_string = "<!-- towncrier release notes start -->\n"
-underlines = ["", "", ""]
-template = "changelog.d/changelog_template.jinja"
-title_format = "## [{version}](https://github.com/vlaci/lzallright/tree/v{version}) - {project_date}"
-issue_format = "[#{issue}](https://github.com/vlaci/lzallright/issues/{issue})"
-
-[[tool.towncrier.type]]
-directory = "deprecated"
-name = "Deprecated"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "added"
-name = "Added"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "changed"
-name = "Changed"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "fixed"
-name = "Fixed"
-showcontent = true
 
 [tool.ruff.lint]
 select = [
