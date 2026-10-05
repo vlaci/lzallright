@@ -1,7 +1,4 @@
-//! Backend-agnostic tests; run with and without `--features lzokay`.
-
-use lzallright::backend::{compress, decompress, Dict};
-use lzallright::error::ErrorKind;
+use lzallright::{compress, decompress, Dict, ErrorKind};
 
 fn noise(len: usize, alphabet: u64) -> Vec<u8> {
     let mut x = 0x9E37_79B9_7F4A_7C15u64 ^ len as u64;
@@ -15,10 +12,10 @@ fn noise(len: usize, alphabet: u64) -> Vec<u8> {
         .collect()
 }
 
-const ALICE: &[u8] = include_bytes!("../benches/corpus/alice-pg11.txt");
-const NASA: &[u8] = include_bytes!("../benches/corpus/nasa-http-jul95.log");
-const SQLITE: &[u8] = include_bytes!("../benches/corpus/sqlite-btree.c");
-const WIKIDATA: &[u8] = include_bytes!("../benches/corpus/wikidata-Q100020.json");
+const ALICE: &[u8] = include_bytes!("../../benches/corpus/alice-pg11.txt");
+const NASA: &[u8] = include_bytes!("../../benches/corpus/nasa-http-jul95.log");
+const SQLITE: &[u8] = include_bytes!("../../benches/corpus/sqlite-btree.c");
+const WIKIDATA: &[u8] = include_bytes!("../../benches/corpus/wikidata-Q100020.json");
 
 /// Compresses into an owned buffer.
 fn lzo_compress(data: &[u8], dict: &mut Dict) -> Vec<u8> {
@@ -79,6 +76,7 @@ inputs! {
     corpus_concat => [ALICE, NASA, SQLITE, WIKIDATA].concat(),
     zeros_1m => vec![0; 1 << 20],
     random_300k => noise(300_000, 256),
+    low_entropy_0 => noise(0, 4),
     low_entropy_1 => noise(1, 4),
     low_entropy_2 => noise(2, 4),
     low_entropy_3 => noise(3, 4),
@@ -116,6 +114,12 @@ fn long_literal(n: usize) -> Vec<u8> {
 }
 
 const EOS: [u8; 3] = [0x11, 0, 0];
+
+#[test]
+fn empty_stream_is_bare_terminator() {
+    assert_eq!(lzo_compress(&[], &mut Dict::new()), EOS);
+    assert_eq!(decode(&EOS), Ok(vec![]));
+}
 
 #[test]
 fn first_byte_18_to_21_copies_up_to_four_literals() {
@@ -179,15 +183,8 @@ fn trailing_input_reports_decoded_size() {
     );
 }
 
-// Crashing test samples found by running `cargo fuzz decompress`
-// in the C++ lzokay library (out-of-bounds reads during
-// zero-byte-length scanning and lookbehind pointer arithmetic).
-//
-// Run under AddressSanitizer (C++ & Rust):
-//
-//     CXXFLAGS="-fsanitize=address" RUSTFLAGS="-Zsanitizer=address" \
-//       cargo test -Zbuild-std --target x86_64-unknown-linux-gnu \
-//       -- lzokay::tests::fuzz_crash_
+// Inputs that crashed the C++ lzokay decoder under `cargo fuzz decompress`
+// (out-of-bounds reads in zero-byte-length scanning and lookbehind arithmetic).
 
 #[test]
 fn fuzz_crash_m1_zero_scan_oob() {

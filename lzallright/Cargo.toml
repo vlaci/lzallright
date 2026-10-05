@@ -1,0 +1,27 @@
+[package]
+name = "lzallright"
+authors.workspace = true
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "LZO compression in safe Rust, ported from LZ👌 (lzokay)"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+categories = ["compression", "no-std", "no-std::no-alloc"]
+
+include = [
+    "/src",
+    "/CHANGELOG.md",
+    "/README.md",
+]
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "lzallright"
+path = "../benches/lzallright.rs"
+harness = false
+

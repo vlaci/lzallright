@@ -1,6 +1,6 @@
 #![no_main]
 
-use lzallright::backend::{compress, decompress, Dict};
+use lzallright::{compress, decompress, Dict};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

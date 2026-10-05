@@ -10,6 +10,9 @@ on:
       - "python/**"
       - "README.md"
       - "CHANGELOG.md"
+      - "lzallright/CHANGELOG.md"
+      - "lzallright/Cargo.toml"
+      - "lzallright/src/**"
       - "zensical.toml"
       - ".github/workflows/Docs.yml"
 
@@ -38,6 +41,10 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           python-version-file: ".python-version"
+      - name: Build Rust API docs
+        run: |
+          cargo doc -p lzallright --no-deps --target-dir target/site-doc
+          cp -r target/site-doc/doc/. docs/rust
       - run: |
           uv sync --no-install-project --only-group docs
           uv run --no-sync zensical build --clean

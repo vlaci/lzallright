@@ -1,5 +1,6 @@
 [package]
-name = "lzokay-sys"
+name = "lzallright-python"
+publish = false
 authors.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -10,19 +11,20 @@ homepage.workspace = true
 repository.workspace = true
 readme.workspace = true
 
-build = "build.rs"
-
-include = [
-    "/build.rs",
-    "/lzokay/*.cpp",
-    "/lzokay/*.hpp",
-    "/src",
-    "wrapper.hpp",
+[lib]
+crate-type = [
+  "cdylib",
+  "rlib"
 ]
 
-
 [dependencies]
-cxx = "1.0"
+lzallright = { path = "../lzallright" }
+pyo3 = "0.29"
 
-[build-dependencies]
-cxx-build = "1.0"
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "python"
+path = "../benches/python.rs"
+harness = false

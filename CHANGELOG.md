@@ -6,12 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 <!-- --8<-- [start:changelog] -->
 
+The changelog of the Rust crate is available [here](/changelog-rust).
+
 ## [Unreleased]
 
 ### Changed
 
+- Reimplemented the C++ lzokay based code in Safe Rust. Building no longer needs a C++ toolchain. The codec is also published as the separately versioned `lzallright` Rust crate; see its [changelog](https://vlaci.github.io/lzallright/changelog-rust/) for details.
 - Updated PyO3 to 0.29; MSRV is bumped to 1.83
 - Minimum supported Python version is now 3.11. Free-threaded wheels are built for 3.14t. x86_64 macOS wheels are no longer published.
+- Published wheels are now built with Profile-Guided Optimization, trained on the benchmark corpus.
+
+### Fixed
+
+- Compressing empty input now produces a valid LZO stream; previously it could not be decompressed.
+- Inputs other than `bytes` are copied before the GIL is released. Writing to the source buffer during compression or decompression, for example through the `bytearray` behind a read-only `memoryview`, could previously corrupt the result.
 
 ## [0.2.6](https://github.com/vlaci/lzallright/tree/v0.2.6) - 2025-06-27
 

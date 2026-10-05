@@ -1,12 +1,12 @@
 [project]
 name = "lzallright"
-version = "0.3.0"
 authors = [
     {name = "László Vaskó", email = "1771332+vlaci@users.noreply.github.com"},
 ]
 dependencies = []
 requires-python = ">=3.11"
 dynamic = [
+    'version',
     'description',
     'license',
     'readme',
@@ -34,9 +34,27 @@ docs = [
 requires = ["maturin>=1.15,<2.0"]
 build-backend = "maturin"
 
+[tool.uv]
+# Custom keys replace uv's defaults; the version now comes from Cargo.toml.
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "Cargo.toml" },
+  { file = "python/Cargo.toml" },
+]
+
 [tool.maturin]
 python-source = "python"
+manifest-path = "python/Cargo.toml"
+include = [
+  { path = "README.md", format = "sdist" },
+  { path = "LICENSE", format = "sdist" },
+  { path = "benches/**/*", format = "sdist" },
+  { path = "uv.lock", format = "sdist" },
+  { path = "scripts/pgo_profile.py", format = "sdist" },
+  { path = "tests/*.py", format = "sdist" },
+]
 module-name = "lzallright._lzallright"
+pgo-command = "python scripts/pgo_profile.py"
 features = [
   "pyo3/extension-module",  # This is an extension module
   "pyo3/abi3-py311"         # https://docs.python.org/3/c-api/stable.html

@@ -1,59 +1,22 @@
-[package]
-name = "lzallright"
-authors.workspace = true
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-description.workspace = true
-license.workspace = true
-homepage.workspace = true
-repository.workspace = true
-readme.workspace = true
-
-include = [
-    "/pyproject.toml",
-    "/uv.lock",
-    "/README.md",
-    "/LICENSE",
-    "/benches",
-    "/rust-toolchain.toml",
-    "/src",
-    "/lzallright.pyi",
-    "/tests/*.py",
-    "!__pycache__",
-    "!*.so",
-]
-
-[lib]
-crate-type = [
-  "cdylib",
-  "rlib"
-]
-
-[dependencies]
-cxx = "1.0.94"
-lzokay-sys = { path = "./lzokay-sys" }
-pyo3 = "0.29"
-
-[dev-dependencies]
-criterion = "0.8"
-
-[[bench]]
-name = "compress"
-harness = false
-
 [workspace]
 resolver = "2"
-members = [".", "lzokay-sys"]
+members = ["lzallright", "python"]
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.2.5"
+# Inherited by the Python package
+version = "0.3.0"
 authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.88"
-description = "A Python 3.11+ binding for LZ👌(lzokay) library"
+rust-version = "1.83"
+description = "A Python 3.11+ LZO compression library in safe Rust, ported from LZ👌 (lzokay)"
 repository = "https://github.com/vlaci/lzallright"
 homepage = "https://vlaci.github.io/lzallright"
 readme = "README.md"
+
+[workspace.dependencies]
+criterion = "0.8"
+
+[workspace.metadata.crane]
+name = "lzallright"

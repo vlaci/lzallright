@@ -81,16 +81,12 @@ jobs:
             tag: manylinux2014
             os: ubuntu-24.04-arm
           - target: x86_64
-            container: quay.io/pypa/musllinux_1_1_x86_64:latest
-            tag: musllinux_1_1
-            before-script: |
-              ln -snf /usr/bin/g++ /usr/bin/x86_64-linux-gnu-g++
+            container: quay.io/pypa/musllinux_1_2_x86_64:latest
+            tag: musllinux_1_2
             os: ubuntu-24.04
           - target: aarch64
-            container: quay.io/pypa/musllinux_1_1_aarch64:latest
-            tag: musllinux_1_1
-            before-script: |
-              ln -snf /usr/bin/g++ /usr/bin/aarch64-linux-gnu-g++
+            container: quay.io/pypa/musllinux_1_2_aarch64:latest
+            tag: musllinux_1_2
             os: ubuntu-24.04-arm
     runs-on: ${{ matrix.os }}
     steps:
@@ -107,20 +103,22 @@ jobs:
         with:
           target: ${{ matrix.target }}
           container: ${{ matrix.container }}
-          before-script-linux: ${{ matrix.before-script }}
-          args: --release --out dist --find-interpreter
-          sccache: ${{ matrix.target == 'musllinux_1_1' }}
+          args: --release --out dist --pgo -i python3.14
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
+          sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
           docker-options: -e CARGO_NET_GIT_FETCH_WITH_CLI=true
-          manylinux: auto
+          manylinux: ${{ matrix.tag }}
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           container: ${{ matrix.container }}
-          before-script-linux: ${{ matrix.before-script }}
-          args: --release --out dist -i python3.14t
-          sccache: ${{ matrix.target == 'musllinux_1_1' }}
-          manylinux: auto
+          args: --release --out dist --pgo -i python3.14t
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
+          sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
+          manylinux: ${{ matrix.tag }}
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -167,13 +165,17 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --pgo -i "${{ steps.python.outputs.python-path }}"
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
           sccache: "true"
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i python3.14t
+          args: --release --out dist --pgo -i python3.14t
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
           sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
@@ -206,6 +208,7 @@ jobs:
         with:
           enable-cache: true
       - name: Setup Python
+        id: python
         uses: actions/setup-python@v6
         with:
           python-version-file: ".python-version"
@@ -213,13 +216,17 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --pgo -i python3.14
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
           sccache: "true"
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i python3.14t
+          args: --release --out dist --pgo -i python3.14t
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
           sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
@@ -228,7 +235,7 @@ jobs:
           path: dist
       - name: Test wheels
         run: |
-          uv sync --no-install-project --group test
+          uv sync --no-install-project --group test --python "${{ steps.python.outputs.python-path }}"
           uv pip install dist/*-cp311-abi3-*.whl
           .venv/bin/pytest
 
@@ -250,7 +257,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: "startsWith(github.ref, 'refs/tags/')"
+    if: "startsWith(github.ref, 'refs/tags/v')"
     needs: [Nix, Linux, Windows, MacOS, sdist]
     steps:
       - uses: actions/download-artifact@v8
