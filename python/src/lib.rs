@@ -57,13 +57,10 @@ impl LZOCompressor {
 
     pub fn compress<'py>(&self, py: Python<'py>, data: Buffer) -> PyResult<Bound<'py, PyBytes>> {
         let src = data.as_slice();
-        let worst = src
-            .len()
-            .checked_add(src.len() / 16 + 64 + 3)
-            .ok_or_else(|| PyMemoryError::new_err(()))?;
+        let worst = lzallright::worst_case_len(src.len());
         let (dst, size) = py.detach(|| -> PyResult<_> {
             let mut dst = zeroed(worst)?;
-            // Lock without the GIL: a waiting thread never blocks the holder.
+            // dict is reset on use, so PoisonError should not affect it
             let mut dict = self.dict.lock().unwrap_or_else(PoisonError::into_inner);
             let size = lzallright::compress(src, &mut dst, &mut dict).map_err(|e| lzo_error(&e))?;
             Ok((dst, size))
@@ -87,7 +84,6 @@ impl LZOCompressor {
             if size > isize::MAX as usize {
                 return Err(PyMemoryError::new_err(()));
             }
-            // Decompress straight into the result: an exact size hint needs no copy.
             let mut result = Ok(0);
             let out = PyBytes::new_with(py, size, |buf| {
                 result = py.detach(|| lzallright::decompress(src, buf));
