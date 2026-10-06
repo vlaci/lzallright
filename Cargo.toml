@@ -20,3 +20,21 @@ criterion = "0.8"
 
 [workspace.metadata.crane]
 name = "lzallright"
+
+[profile.release]
+debug = true
+
+[profile.release-lto]
+inherits = "release"
+opt-level = 3
+panic = "abort"
+debug = "none"
+strip = "symbols"
+debug-assertions = false
+overflow-checks = false
+lto = "fat"
+incremental = false
+codegen-units = 1
+
+[profile.bench]
+inherits = "release-lto"
