@@ -91,7 +91,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: cache rust
@@ -153,12 +153,12 @@ jobs:
           enable-cache: true
       - name: Setup Python
         id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Setup Free-threaded Python
         id: python-nogil
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.14t
       - name: Build wheels
@@ -209,7 +209,7 @@ jobs:
           enable-cache: true
       - name: Setup Python
         id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
       - name: Build wheels
