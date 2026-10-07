@@ -1,0 +1,24 @@
+name: crates.io
+
+on:
+  push:
+    tags:
+      - "lzallright-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      id-token: write   # for trusted publishing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish -p lzallright
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
