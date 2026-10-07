@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 The changelog of the Rust crate is available [here](/changelog-rust).
 
-## [Unreleased]
+## [0.3.0]https://github.com/vlaci/lzallright/tree/v0.3.0) - 2026-10-07
 
 ### Changed
 
