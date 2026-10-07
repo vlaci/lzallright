@@ -191,7 +191,7 @@ jobs:
 
   MacOS:
     needs: [Nix]
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     strategy:
