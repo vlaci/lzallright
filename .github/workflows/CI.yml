@@ -119,6 +119,16 @@ jobs:
           rustup-components: llvm-tools
           sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
           manylinux: ${{ matrix.tag }}
+      - name: Build abi3t wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          container: ${{ matrix.container }}
+          args: --profile release-lto --out dist --pgo -i python3.15t
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
+          sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
+          manylinux: ${{ matrix.tag }}
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -126,12 +136,15 @@ jobs:
           path: dist
       - name: Test wheels
         run: |
-          cat << EOF | docker run -v $PWD:/usr/src -i ${{ matrix.container }} sh -ex -
+          cat << EOF | docker run -v "$PWD":/usr/src -i ${{ matrix.container }} sh -ex -
             cd /usr/src
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH=/root/.local/bin:$PATH
             uv sync --no-install-project --group test
             uv pip install dist/*-cp311-abi3-*.whl
+            .venv/bin/pytest
+            uv sync --no-install-project --group test --python /opt/python/cp315-cp315t/bin/python
+            uv pip install dist/*-abi3.abi3t-*.whl
             .venv/bin/pytest
           EOF
 
@@ -161,6 +174,12 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: 3.14t
+      - name: Setup Python 3.15t
+        id: python-abi3t
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.15t
+          allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -177,6 +196,14 @@ jobs:
           maturin-version: v1.15.0
           rustup-components: llvm-tools
           sccache: "true"
+      - name: Build abi3t wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --profile release-lto --out dist --pgo -i "${{ steps.python-abi3t.outputs.python-path }}"
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
+          sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -187,6 +214,9 @@ jobs:
         run: |
           uv sync --no-install-project --group test --python "${{ steps.python.outputs.python-path }}"
           uv pip install (get-item .\dist\*-cp311-abi3-*.whl).FullName
+          &".\.venv\Scripts\pytest.exe"
+          uv sync --no-install-project --group test --python "${{ steps.python-abi3t.outputs.python-path }}"
+          uv pip install (get-item .\dist\*-abi3.abi3t-*.whl).FullName
           &".\.venv\Scripts\pytest.exe"
 
   MacOS:
@@ -212,6 +242,12 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
+      - name: Setup Python 3.15t
+        id: python-abi3t
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.15t
+          allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -228,6 +264,14 @@ jobs:
           maturin-version: v1.15.0
           rustup-components: llvm-tools
           sccache: "true"
+      - name: Build abi3t wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --profile release-lto --out dist --pgo -i "${{ steps.python-abi3t.outputs.python-path }}"
+          maturin-version: v1.15.0
+          rustup-components: llvm-tools
+          sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -237,6 +281,9 @@ jobs:
         run: |
           uv sync --no-install-project --group test --python "${{ steps.python.outputs.python-path }}"
           uv pip install dist/*-cp311-abi3-*.whl
+          .venv/bin/pytest
+          uv sync --no-install-project --group test --python "${{ steps.python-abi3t.outputs.python-path }}"
+          uv pip install dist/*-abi3.abi3t-*.whl
           .venv/bin/pytest
 
   sdist:

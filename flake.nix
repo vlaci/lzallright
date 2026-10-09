@@ -87,9 +87,13 @@
         let
           pkgs = nixpkgsFor.${system};
           inherit (pkgs.python3Packages) lzallright;
-          freethreaded = lzallright.override { python = pkgs.python314FreeThreading; };
+          pytestWith = python: (lzallright.override { inherit python; }).passthru.tests.pytest;
         in
-        lzallright.passthru.tests // { pytest-freethreaded = freethreaded.passthru.tests.pytest; }
+        lzallright.passthru.tests
+        // {
+          pytest-py314t = pytestWith pkgs.python314FreeThreading;
+          pytest-py315t = pytestWith pkgs.python315FreeThreading;
+        }
       );
 
       packages = forAllSystems (
