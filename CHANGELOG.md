@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 The changelog of the Rust crate is available [here](/changelog-rust).
 
+## Unreleased
+
+### Added
+
+- Built `abi3t` wheels, supporting the stable ABI for free-threaded wheels compatible with Python 3.15t and future versions https://peps.python.org/pep-0803/
+
 ## [0.3.0]https://github.com/vlaci/lzallright/tree/v0.3.0) - 2026-10-07
 
 ### Changed
