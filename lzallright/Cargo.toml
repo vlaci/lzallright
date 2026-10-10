@@ -24,4 +24,3 @@ criterion.workspace = true
 name = "lzallright"
 path = "../benches/lzallright.rs"
 harness = false
-
