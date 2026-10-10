@@ -17,6 +17,16 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     crane-maturin.url = "github:vlaci/crane-maturin";
     shell-hooks.url = "github:vlaci/nix-shell-hooks";
   };
@@ -28,6 +38,8 @@
       crane,
       crane-maturin,
       advisory-db,
+      git-hooks,
+      treefmt-nix,
       shell-hooks,
       rust-overlay,
       ...
@@ -50,6 +62,75 @@
           ];
         }
       );
+
+      rustToolchainFor = forAllSystems (
+        system:
+        nixpkgsFor.${system}.rust-bin.selectLatestNightlyWith (
+          toolchain:
+          toolchain.default.override {
+            extensions = [
+              "cargo"
+              "clippy"
+              "rust-src"
+              "rustc"
+              "rustfmt"
+            ];
+          }
+        )
+      );
+
+      treefmtFor = forAllSystems (
+        system:
+        treefmt-nix.lib.evalModule nixpkgsFor.${system} {
+          projectRootFile = "flake.nix";
+          programs = {
+            nixfmt.enable = true;
+            ruff-format.enable = true;
+            rustfmt = {
+              enable = true;
+              package = rustToolchainFor.${system};
+              edition = "2021";
+            };
+          };
+        }
+      );
+
+      pre-commit-check = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgsFor.${system};
+          rust = rustToolchainFor.${system};
+        in
+        git-hooks.lib.${system}.run {
+          src = ./.;
+          package = pkgs.prek;
+          hooks = {
+            check-added-large-files.enable = true;
+            end-of-file-fixer = {
+              enable = true;
+              excludes = [ "^benches/corpus/" ];
+            };
+            check-yaml.enable = true;
+            check-toml.enable = true;
+            treefmt = {
+              enable = true;
+              package = treefmtFor.${system}.config.build.wrapper;
+            };
+            statix.enable = true;
+            deadnix.enable = true;
+            ruff.enable = true;
+            cargo-check = {
+              enable = true;
+              package = rust;
+            };
+            clippy = {
+              enable = true;
+              packageOverrides.cargo = rust;
+              packageOverrides.clippy = rust;
+            };
+          };
+        }
+      );
     in
     {
       overlays.default =
@@ -62,12 +143,12 @@
           pyFilter =
             path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
           sourceFilter = path: type: (assetFilter path type) || (cmLib.filterCargoSources path type);
-          testFilter = p: t: builtins.match ".*/(pyproject\.toml|tests|tests/.*\.py)$" p != null;
+          testFilter = p: _t: builtins.match ".*/(pyproject\.toml|tests|tests/.*\.py)$" p != null;
 
         in
         {
           pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-            (python-final: python-prev: {
+            (_python-final: _python-prev: {
               lzallright = cmLib.buildMaturinPackage {
                 src = final.lib.cleanSourceWith {
                   src = cmLib.path ./.;
@@ -150,30 +231,23 @@
         in
         {
           default = pkgs.mkShell {
-            packages = with pkgs; [
-              cargo-msrv
-              cargo-fuzz
-              cargo-nextest
-              (rust-bin.selectLatestNightlyWith (
-                toolchain:
-                toolchain.default.override {
-                  extensions = [
-                    "cargo"
-                    "clippy"
-                    "rust-src"
-                    "rustc"
-                    "rustfmt"
-                  ];
-                }
-              ))
-              rust-analyzer
-              gnuplot
-              python3Packages.uvVenvShellHook
-              python3Packages.maturinImportShellHook
-              python3Packages.autoPatchelfVenvShellHook
-              gdb
-              lzo
-            ];
+            inherit (pre-commit-check.${system}) shellHook;
+            packages =
+              with pkgs;
+              [
+                cargo-msrv
+                cargo-fuzz
+                cargo-nextest
+                rustToolchainFor.${system}
+                rust-analyzer
+                gnuplot
+                python3Packages.uvVenvShellHook
+                python3Packages.maturinImportShellHook
+                python3Packages.autoPatchelfVenvShellHook
+                gdb
+                lzo
+              ]
+              ++ pre-commit-check.${system}.enabledPackages;
             uvExtraArgs = [
               "--group"
               "test"
@@ -184,6 +258,28 @@
         }
       );
 
-      formatter = forAllSystems (system: nixpkgsFor.${system}.nixpkgs-fmt);
+      formatter = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgsFor.${system};
+          inherit (pre-commit-check.${system}.config) package configFile;
+        in
+        pkgs.runCommand "pre-commit-run"
+          {
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            meta.mainProgram = "pre-commit-run";
+          }
+          ''
+            makeWrapper ${pkgs.lib.getExe package} $out/bin/pre-commit-run \
+              --suffix PATH : ${
+                pkgs.lib.makeBinPath [
+                  rustToolchainFor.${system}
+                  pkgs.stdenv.cc
+                  pkgs.python3
+                ]
+              } \
+              --add-flags "run --all-files --config ${configFile}"
+          ''
+      );
     };
 }

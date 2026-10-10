@@ -6,10 +6,6 @@ use pyo3::{
     types::{PyBytes, PyMemoryView},
 };
 
-/// Input bytes, safe to read while the GIL is released. Only `bytes` is
-/// borrowed: it is the one exporter whose memory cannot change. Every other
-/// buffer is copied, read-only views included, since another view of the same
-/// exporter (e.g. the underlying bytearray) can still be written.
 pub enum Buffer {
     Bytes(PyBackedBytes),
     Owned(Vec<u8>),
