@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2018 Jack Andersen
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 use core::cell::Cell;
 
 use super::consts::*;

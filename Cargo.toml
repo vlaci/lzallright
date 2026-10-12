@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 [workspace]
 resolver = "2"
 members = ["lzallright", "python"]
@@ -6,7 +10,7 @@ exclude = ["fuzz"]
 [workspace.package]
 # Inherited by the Python package
 version = "0.3.0"
-authors = ["László Vaskó <1771332+vlaci@users.noreply.github.com>"]
+authors = ["László Vaskó <opensource@vlaci.email>"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.83"

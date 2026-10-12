@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 {
   description = "Build a cargo project";
 
@@ -129,6 +133,11 @@
               packageOverrides.cargo = rust;
               packageOverrides.clippy = rust;
             };
+            reuse = {
+              enable = true;
+              entry = "${pkgs.reuse}/bin/reuse --no-multiprocessing lint";
+              after = [ "reuse-annotate" ];
+            };
           };
         }
       );
@@ -142,7 +151,8 @@
           assetFilter =
             path: _type: builtins.match ".*/benches(/corpus)?(/[^/]+\\.(txt|c|json|log))?$" path != null;
           pyFilter =
-            path: _type: builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSE$" path != null;
+            path: _type:
+            builtins.match ".*pyi?$|.*/py\.typed$|.*/README.md$|.*/LICENSES(/[^/]+\\.txt)?$" path != null;
           sourceFilter = path: type: (assetFilter path type) || (cmLib.filterCargoSources path type);
           testFilter = p: _t: builtins.match ".*/(pyproject\.toml|tests|tests/.*\.py)$" p != null;
 
