@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 László Vaskó <opensource@accounts.vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 use std::sync::{Mutex, PoisonError};
 
 use pyo3::{create_exception, exceptions::PyMemoryError, prelude::*, types::PyBytes};

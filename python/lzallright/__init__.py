@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 László Vaskó <opensource@accounts.vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 """lzalright LZO compression library.
 
 A Python 3.11+ implementation of the

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@accounts.vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;

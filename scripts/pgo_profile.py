@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@accounts.vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 """Training workload for PGO builds (`pgo-command` in pyproject.toml).
 
 Runs the instrumented extension over the benchmark corpus so the profile

@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@accounts.vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
+version = 1
+
+[[annotations]]
+path = [
+  "**/*.md",
+  "Cargo.lock",
+  "fuzz/Cargo.lock",
+  "uv.lock",
+  "flake.lock",
+  "renovate.json",
+  ".python-version",
+  "python/lzallright/py.typed",
+  "tests/examples/**",
+  "benches/lorem.txt",
+]
+SPDX-FileCopyrightText = "2023-2026 László Vaskó <opensource@accounts.vlaci.email>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "benches/corpus/alice-pg11.txt"
+precedence = "override"
+SPDX-FileCopyrightText = "1865 Lewis Carroll"
+SPDX-License-Identifier = "LicenseRef-PublicDomain"
+SPDX-FileComment = "Project Gutenberg #11, Alice's Adventures in Wonderland, https://www.gutenberg.org/cache/epub/11/pg11.txt; Gutenberg header/licence boilerplate excluded (bytes 909..909+24559). Cut by benches/corpus/default.nix."
+
+[[annotations]]
+path = "benches/corpus/sqlite-btree.c"
+precedence = "override"
+SPDX-FileCopyrightText = "2004 The SQLite authors"
+SPDX-License-Identifier = "blessing"
+SPDX-FileComment = "SQLite 3.53.4 src/btree.c, https://raw.githubusercontent.com/sqlite/sqlite/version-3.53.4/src/btree.c; first 24548 bytes. Cut by benches/corpus/default.nix."
+
+[[annotations]]
+path = "benches/corpus/wikidata-Q100020.json"
+precedence = "override"
+SPDX-FileCopyrightText = "Wikidata contributors"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Wikidata Q100020 (Mechelen), revision 2525618092, complete document, https://www.wikidata.org/wiki/Special:EntityData/Q100020.json?revision=2525618092. Produced by benches/corpus/default.nix."
+
+[[annotations]]
+path = "benches/corpus/nasa-http-jul95.log"
+precedence = "override"
+SPDX-FileCopyrightText = "1995 NASA Kennedy Space Center"
+SPDX-License-Identifier = "LicenseRef-NASA-HTTP"
+SPDX-FileComment = "NASA-HTTP July 1995 access log, Internet Traffic Archive, https://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz; first 16300 bytes of the decompressed log. Cut by benches/corpus/default.nix."

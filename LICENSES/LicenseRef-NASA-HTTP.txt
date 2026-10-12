@@ -1,0 +1,3 @@
+NASA-HTTP access log traces, Internet Traffic Archive.
+"The traces may be freely redistributed."
+Source terms: https://ita.ee.lbl.gov/html/contrib/NASA-HTTP.html
