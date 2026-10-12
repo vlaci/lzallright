@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
 

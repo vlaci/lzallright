@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 /// List specifying categories of compression and decompression
 /// related errors.
 #[non_exhaustive]

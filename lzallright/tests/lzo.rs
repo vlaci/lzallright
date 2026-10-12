@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 use lzallright::{compress, decompress, Dict, ErrorKind};
 
 fn noise(len: usize, alphabet: u64) -> Vec<u8> {

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "lzallright"
 authors.workspace = true

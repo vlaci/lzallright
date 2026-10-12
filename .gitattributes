@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 benches/corpus/** -text linguist-vendored
-benches/corpus/SOURCES.md text -linguist-vendored
 benches/corpus/default.nix text -linguist-vendored

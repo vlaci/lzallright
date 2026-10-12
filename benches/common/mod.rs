@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 use std::{env, fs, path::Path};
 
 use criterion::{BenchmarkGroup, SamplingMode, Throughput};

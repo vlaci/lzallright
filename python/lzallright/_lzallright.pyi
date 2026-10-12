@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 from typing_extensions import Buffer
 
 class LZOCompressor:

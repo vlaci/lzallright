@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
 import array
 import mmap
 import os

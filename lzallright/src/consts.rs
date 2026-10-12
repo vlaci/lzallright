@@ -1,4 +1,10 @@
+// SPDX-FileCopyrightText: 2018 Jack Andersen
+// SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 #![allow(non_upper_case_globals)]
+
 pub const HASH_SIZE: usize = 0x4000;
 pub const MAX_DIST: usize = 0xbfff;
 pub const MAX_MATCH_LEN: usize = 0x800;

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 László Vaskó <opensource@vlaci.email>
+//
+// SPDX-License-Identifier: MIT
+
 use pyo3::{
     buffer::PyBuffer,
     exceptions::{PyBufferError, PyMemoryError},
