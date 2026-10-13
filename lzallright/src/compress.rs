@@ -136,10 +136,10 @@ impl<'a> Writer<'a> {
 ///
 /// ```
 ///  use lzallright::{Dict,worst_case_len,compress};
-///  
+///
 ///  let input = b"hello";
 ///  let mut output = vec![0; worst_case_len(input.len())];
-///  
+///
 ///  let mut dict = Dict::new();
 ///  let size = compress(input, &mut output, &mut dict).unwrap();
 ///  output.resize(size, 0);
