@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
+[global]
+# MD013 line length: prose is not wrapped.
+# MD033 inline HTML: attr_list / md_in_html markup is intentional.
+# MD041 first-line heading: pages start with zensical front matter or a snippet include.
+# MD051/MD057 link targets: anchors and paths are resolved by mkdocstrings / cargo doc at build time.
+disable = ["MD013", "MD033", "MD041", "MD051", "MD057"]
+flavor = "mkdocs"

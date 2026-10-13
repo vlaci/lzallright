@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
+[formatting]
+array_auto_collapse = false
+reorder_keys = true
+
+# Array order is meaningful elsewhere (zensical nav, extra_css); only sort pyproject lists.
+[[rule]]
+include = ["**/pyproject.toml"]
+
+[rule.formatting]
+reorder_arrays = true
