@@ -16,7 +16,6 @@ good introduction is available in the [Linux Kernel documentation]
 The crate is `no_std`. Decompression works without any allocation.
 For compression, a [`Dict`] instance is needed.
 
-
 # Examples
 
 ```rust

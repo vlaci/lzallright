@@ -3,118 +3,71 @@
 # SPDX-License-Identifier: MIT
 
 [project]
-name = "lzallright"
 authors = [
-    {name = "László Vaskó", email = "opensource@vlaci.email"},
+  { name = "László Vaskó", email = "opensource@vlaci.email" },
 ]
 dependencies = []
-requires-python = ">=3.11"
-license-files = ["LICENSES/*.txt"]
 dynamic = [
-    'version',
-    'description',
-    'license',
-    'readme',
+  'description',
+  'license',
+  'readme',
+  'version',
 ]
+license-files = ["LICENSES/*.txt"]
+name = "lzallright"
+requires-python = ">=3.11"
 
 [project.urls]
+Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
 Homepage = "https://vlaci.github.io/lzallright"
 Repository = "https://github.com/vlaci/lzallright"
-Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16,<0.17",
-    "ty>=0.0.84,<0.1"
-]
-test = [
-    "pytest>=9.1,<10.0"
+  "ruff>=0.16,<0.17",
+  "ty>=0.0.84,<0.1",
 ]
 docs = [
-    "zensical>=0.0.67",
-    "mkdocstrings-python>=2.0.9"
+  "mkdocstrings-python>=2.0.9",
+  "zensical>=0.0.67",
+]
+test = [
+  "pytest>=9.1,<10.0",
 ]
 
 [build-system]
-requires = ["maturin>=1.15,<2.0"]
 build-backend = "maturin"
+requires = ["maturin>=1.15,<2.0"]
 
 [tool.uv]
 # Custom keys replace uv's defaults; the version now comes from Cargo.toml.
 cache-keys = [
-  { file = "pyproject.toml" },
   { file = "Cargo.toml" },
+  { file = "pyproject.toml" },
   { file = "python/Cargo.toml" },
 ]
 
 [tool.maturin]
-python-source = "python"
-manifest-path = "python/Cargo.toml"
+features = [
+  "pyo3/abi3-py311",       # https://docs.python.org/3/c-api/stable.html
+  "pyo3/abi3t-py315",      # https://peps.python.org/pep-0803/
+  "pyo3/extension-module", # This is an extension module
+]
 include = [
-  { path = "README.md", format = "sdist" },
   { path = "LICENSES/*", format = "sdist" },
+  { path = "README.md", format = "sdist" },
   { path = "benches/**/*", format = "sdist" },
-  { path = "uv.lock", format = "sdist" },
   { path = "scripts/pgo_profile.py", format = "sdist" },
   { path = "tests/*.py", format = "sdist" },
+  { path = "uv.lock", format = "sdist" },
 ]
+manifest-path = "python/Cargo.toml"
 module-name = "lzallright._lzallright"
 pgo-command = "python scripts/pgo_profile.py"
-features = [
-  "pyo3/extension-module",  # This is an extension module
-  "pyo3/abi3-py311",        # https://docs.python.org/3/c-api/stable.html
-  "pyo3/abi3t-py315"        # https://peps.python.org/pep-0803/
-]
+python-source = "python"
 
-[tool.ruff.lint]
-select = [
-  "A",      # flake8-builtins
-  "ARG",    # flake8-unused-arguments
-  "B",      # flake8-bugbear
-  "C90",    # mccabe
-  "C4",     # flake8-comprehensions
-  "COM818", # flake8-commas; trailing-comma-on-bare-tuple
-  "D",      # pydocstyle
-  "E",      # pycodestyle (errors)
-  "F",      # pyflakes
-  "FBT",    # flake8-boolean-trap
-  "G",      # flake8-logging-format
-  "I",      # isort
-  "N",      # pep8-naming
-  "PIE",    # flake8-pie
-  "PYI",    # flake8-pyi
-  "PL",     # pylint
-  "PT",     # flake8-pytest-style
-  "PTH",    # flake8-use-pathlib
-  "RET",    # flake8-return
-  "RUF",    # ruff's own lints
-  "RSE",    # flake8-raise
-  "S",      # flake8-bandit
-  "SIM",    # flake8-simplify
-  "SLF",    # flake8-self
-  "T10",    # flake8-debugger
-  "T20",    # flake8-print
-  "TCH",    # flake8-type-checking
-  "TRY",    # tryceratops
-  "UP",     # pyupgrade
-  "W",      # pycodestyle (warnings)
-]
-
-ignore = [
-  "D203",    # one-blank-line-before-class:    D211 (no-blank-line-before-class) is used instead
-  "D213",    # multi-line-summary-second-line: D212 (multi-line-summary-first-line) is used instead
-  "E501",    # line-too-long:                  Let black handle line length violations
-  "PYI021",  # docstring-in-stub:              We document in the stub
-]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = [
-  "S101",    # assert:                         Enable usage of asserts
-  "D1",      # undocumented-*
-]
-"tests/examples/*" = [
-  "PT017",   # pytest-assert-in-except:        Not pytest
-]
+[tool.ruff]
+extend = "ruff-base.toml"
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

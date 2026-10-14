@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v1.0.0
+_src_path: gh:vlaci/project-template
+cachix_name: lzallright
+cargo_coverage: true
+checkout_submodules: false
+copyright: 2026 László Vaskó <opensource@vlaci.email>
+docs_primary_color: deep orange
+maturin_args: --profile release-lto
+pgo: true
+project_name: lzallright
+pytest_coverage: true
+rust_crate: lzallright
+spdx_license: MIT
+wheel_interpreters: 3.14 3.14t 3.15t
+wheel_platforms:
+- linux-x86_64-gnu
+- linux-aarch64-gnu
+- linux-x86_64-musl
+- linux-aarch64-musl
+- windows-x64
+- macos-x86_64
+- macos-aarch64
+wheels: true

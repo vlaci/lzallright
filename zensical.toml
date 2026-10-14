@@ -3,55 +3,93 @@
 # SPDX-License-Identifier: MIT
 
 [project]
-site_name = "LZAllright"
-site_url = "https://vlaci.github.io/lzallright"
+extra_css = ["stylesheets/mkdocstrings.css"]
+nav = [
+  "index.md",
+  "usage.md",
+  "api.md",
+  "changelog.md",
+]
 repo_name = "vlaci/lzallright"
 repo_url = "https://github.com/vlaci/lzallright"
-nav = [
-  { "Home" = "index.md" },
-  { "Usage" = "usage.md" },
-  { "API Documentation" = "api.md" },
-  { "Changelog" = "changelog.md" },
-]
+site_name = "lzallright"
+site_url = "https://vlaci.github.io/lzallright"
 
 [project.theme]
-features = ["toc.integrate", "toc.follow", "navigation.instant", "navigation.top", "content.code.annotate"]
+favicon = "images/logo.png"
+logo = "images/logo.svg"
 
-[project.theme.font]
-text = "Open Sans"
-code = "Fira Code"
+# Palette toggle for automatic mode
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+primary = "deep orange"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
 
+# Palette toggle for light mode
 [[project.theme.palette]]
 media = "(prefers-color-scheme: light)"
-scheme = "default"
 primary = "deep orange"
+scheme = "default"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
+# Palette toggle for dark mode
 [[project.theme.palette]]
 media = "(prefers-color-scheme: dark)"
-scheme = "slate"
 primary = "deep orange"
+scheme = "slate"
 toggle.icon = "lucide/moon"
-toggle.name = "Switch to light mode"
+toggle.name = "Switch to system preference"
 
 [project.plugins.mkdocstrings.handlers.python]
+inventories = ["https://docs.python.org/3/objects.inv"]
 paths = ["python"]
 
 [project.plugins.mkdocstrings.handlers.python.options]
-allow_inspection = false
-separate_signature = true
+docstring_section_style = "list"
+docstring_style = "google"
+extensions = ["griffe_warnings_deprecated"]
 filters = ["!^_"]
+heading_level = 2
+inherited_members = true
 members_order = "source"
+merge_init_into_class = true
+parameter_headings = true
+separate_signature = true
+show_root_full_path = false
+show_root_heading = true
+show_signature_annotations = true
+show_source = true
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+signature_crossrefs = true
+summary = true
+type_parameter_headings = true
 
-[project.markdown_extensions.pymdownx.snippets]
-
-[project.markdown_extensions.pymdownx.superfences]
+[project.markdown_extensions.toc]
+permalink = true
 
 [project.markdown_extensions.attr_list]
 
-[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.admonition]
 
-[project.markdown_extensions.toc]
-permalink = "#"
-toc_depth = 2
+[project.markdown_extensions.pymdownx.details]
+
+[project.markdown_extensions.pymdownx.snippets]
+base_path = "docs"
+check_paths = true
+restrict_base_path = false
+
+[project.markdown_extensions.pymdownx.superfences]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/vlaci/lzallright"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/python"
+link = "https://pypi.org/project/lzallright/"

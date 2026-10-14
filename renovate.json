@@ -2,6 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "schedule:weekly"],
   "labels": ["dependencies"],
+  "minimumReleaseAge": "14 days",
+  "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch"],
@@ -10,9 +12,6 @@
     }
   ],
   "nix": {
-    "enabled": true
-  },
-  "pre-commit": {
     "enabled": true
   },
   "lockFileMaintenance": {

@@ -1,0 +1,50 @@
+/*
+ * SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+code.doc-symbol {
+  border-radius: 0.1rem;
+  font-size: 0.85em;
+  padding: 0 0.3em;
+  font-weight: bold;
+}
+
+code.doc-symbol-heading.doc-symbol-method::after {
+  content: "meth";
+}
+
+code.doc-symbol-heading.doc-symbol-function::after {
+  content: "func";
+}
+
+code.doc-symbol-heading.doc-symbol-module::after {
+  content: "mod";
+}
+
+code.doc-symbol-heading.doc-symbol-attribute::after {
+  content: "attr";
+}
+
+[data-version]::after,
+.version-badge {
+  vertical-align: super;
+  font-size: smaller;
+  font-weight: 600;
+  padding: 0.15em 0.5em;
+  border-radius: 1em;
+  background: var(--md-accent-fg-color);
+  color: white;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  margin-left: 0.4em;
+}
+
+[data-version]::after {
+  content: attr(data-version);
+}
+
+.version-badge {
+  font-style: normal;
+}

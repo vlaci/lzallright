@@ -3,21 +3,21 @@
 # SPDX-License-Identifier: MIT
 
 [workspace]
-resolver = "2"
-members = ["lzallright", "python"]
 exclude = ["fuzz"]
+members = ["lzallright", "python"]
+resolver = "2"
 
 [workspace.package]
 # Inherited by the Python package
-version = "0.3.0"
 authors = ["László Vaskó <opensource@vlaci.email>"]
-license = "MIT"
-edition = "2021"
-rust-version = "1.83"
 description = "A Python 3.11+ LZO compression library in safe Rust, ported from LZ👌 (lzokay)"
-repository = "https://github.com/vlaci/lzallright"
+edition = "2021"
 homepage = "https://vlaci.github.io/lzallright"
+license = "MIT"
 readme = "README.md"
+repository = "https://github.com/vlaci/lzallright"
+rust-version = "1.83"
+version = "0.3.0"
 
 [workspace.dependencies]
 criterion = "0.8"
@@ -29,16 +29,16 @@ name = "lzallright"
 debug = true
 
 [profile.release-lto]
-inherits = "release"
-opt-level = 3
-panic = "abort"
-debug = "none"
-strip = "symbols"
-debug-assertions = false
-overflow-checks = false
-lto = "fat"
-incremental = false
 codegen-units = 1
+debug = "none"
+debug-assertions = false
+incremental = false
+inherits = "release"
+lto = "fat"
+opt-level = 3
+overflow-checks = false
+panic = "abort"
+strip = "symbols"
 
 [profile.bench]
 inherits = "release-lto"

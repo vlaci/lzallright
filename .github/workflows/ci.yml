@@ -1,0 +1,190 @@
+# SPDX-FileCopyrightText: 2026 László Vaskó <opensource@vlaci.email>
+#
+# SPDX-License-Identifier: MIT
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  nix:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64-linux
+            os: ubuntu-24.04
+          - arch: aarch64-linux
+            os: ubuntu-24.04-arm
+          - arch: aarch64-darwin
+            os: macos-26
+    name: Build Nix - ${{ matrix.arch }}.${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+      - uses: cachix/cachix-action@v17
+        with:
+          name: lzallright
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Pre-Commit
+        if: ${{ matrix.arch == 'x86_64-linux' }}
+        run: nix fmt
+      - name: Nix Flake checks
+        run: |
+          nix flake check \
+              --keep-going \
+              --print-build-logs \
+              --option system ${{ matrix.arch }} \
+              --extra-platforms ${{ matrix.arch }}
+      - name: Code coverage
+        if: ${{ matrix.arch == 'x86_64-linux' }}
+        run: |
+          nix build .#checks.${{ matrix.arch }}.test-coverage -o cargo-test
+          nix build .#checks.${{ matrix.arch }}.pytest-coverage -o pytest
+      - uses: codecov/codecov-action@v7
+        if: ${{ matrix.arch == 'x86_64-linux' }}
+        with:
+          flags: cargo-test
+          files: cargo-test/coverage.codecov
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - uses: codecov/codecov-action@v7
+        if: ${{ matrix.arch == 'x86_64-linux' }}
+        with:
+          flags: pytest
+          files: pytest/coverage.codecov
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  wheels:
+    needs: [nix]
+    name: Wheels - ${{ matrix.platform.id }} py${{ matrix.interpreter }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - id: linux-x86_64-gnu
+            runner: ubuntu-24.04
+            target: x86_64
+            container: quay.io/pypa/manylinux2014_x86_64:latest
+            manylinux: manylinux2014
+          - id: linux-aarch64-gnu
+            runner: ubuntu-24.04-arm
+            target: aarch64
+            container: quay.io/pypa/manylinux2014_aarch64:latest
+            manylinux: manylinux2014
+          - id: linux-x86_64-musl
+            runner: ubuntu-24.04
+            target: x86_64
+            container: quay.io/pypa/musllinux_1_2_x86_64:latest
+            manylinux: musllinux_1_2
+          - id: linux-aarch64-musl
+            runner: ubuntu-24.04-arm
+            target: aarch64
+            container: quay.io/pypa/musllinux_1_2_aarch64:latest
+            manylinux: musllinux_1_2
+          - id: windows-x64
+            runner: windows-latest
+            target: x64
+          - id: macos-x86_64
+            runner: macos-26-intel
+            target: x86_64
+            macosx: "10.12"
+          - id: macos-aarch64
+            runner: macos-26
+            target: aarch64
+            macosx: "11.0"
+        interpreter: ["3.14", "3.14t", "3.15t"]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set macOS deployment target
+        if: matrix.platform.macosx
+        shell: bash
+        run: echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.platform.macosx }}" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v7
+        id: python
+        if: ${{ !matrix.platform.container }}
+        with:
+          python-version: ${{ matrix.interpreter }}
+          allow-prereleases: true
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wheel-${{ matrix.platform.id }}-${{ matrix.interpreter }}
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          container: ${{ matrix.platform.container }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          args: --profile release-lto --pgo --out dist -i ${{ matrix.platform.container && format('python{0}', matrix.interpreter) || steps.python.outputs.python-path }}
+          rustup-components: llvm-tools
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') && !startsWith(matrix.platform.manylinux || '', 'musllinux') }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.platform.id }}-py${{ matrix.interpreter }}
+          path: dist
+      - name: Test wheels (container)
+        if: matrix.platform.container
+        run: |
+          docker run --rm -v "$PWD":/io -w /io -e UV_PYTHON_DOWNLOADS=never ${{ matrix.platform.container }} sh -exc '
+            curl -LsSf https://astral.sh/uv/install.sh | sh; export PATH=$HOME/.local/bin:$PATH
+            uv sync --no-install-project --no-default-groups --group test --python python${{ matrix.interpreter }}
+            uv pip install lzallright --no-index --find-links dist
+            uv run --no-sync pytest'
+      - name: Test wheels
+        if: ${{ !matrix.platform.container }}
+        shell: bash
+        run: |
+          uv sync --no-install-project --no-default-groups --group test --python "${{ steps.python.outputs.python-path }}"
+          uv pip install lzallright --no-index --find-links dist
+          uv run --no-sync pytest
+
+  sdist:
+    needs: [nix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          container: "off"
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [sdist, wheels]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: "dist/*"
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/*

@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 [package]
-name = "lzallright-fuzz"
-version = "0.0.0"
-publish = false
 edition = "2021"
+name = "lzallright-fuzz"
+publish = false
+version = "0.0.0"
 
 [package.metadata]
 cargo-fuzz = true
@@ -22,11 +22,11 @@ path = "../lzallright"
 members = ["."]
 
 [[bin]]
+doc = false
 name = "decompress"
 path = "fuzz_targets/decompress.rs"
-doc = false
 
 [[bin]]
+doc = false
 name = "roundtrip"
 path = "fuzz_targets/roundtrip.rs"
-doc = false
