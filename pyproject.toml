@@ -24,7 +24,7 @@ Changelog = "https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16,<0.17",
+    "ruff>=0.17,<0.18",
     "ty>=0.0.84,<0.1"
 ]
 test = [
