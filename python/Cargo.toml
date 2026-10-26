@@ -23,7 +23,7 @@ crate-type = [
 
 [dependencies]
 lzallright = { path = "../lzallright" }
-pyo3 = "0.29"
+pyo3 = "0.30"
 
 [dev-dependencies]
 criterion.workspace = true
