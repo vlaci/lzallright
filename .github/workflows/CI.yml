@@ -111,7 +111,7 @@ jobs:
           target: ${{ matrix.target }}
           container: ${{ matrix.container }}
           args: --profile release-lto --out dist --pgo -i python3.14
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
           docker-options: -e CARGO_NET_GIT_FETCH_WITH_CLI=true
@@ -122,7 +122,7 @@ jobs:
           target: ${{ matrix.target }}
           container: ${{ matrix.container }}
           args: --profile release-lto --out dist --pgo -i python3.14t
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
           manylinux: ${{ matrix.tag }}
@@ -132,7 +132,7 @@ jobs:
           target: ${{ matrix.target }}
           container: ${{ matrix.container }}
           args: --profile release-lto --out dist --pgo -i python3.15t
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: ${{ !startsWith(matrix.tag, 'musllinux') }}
           manylinux: ${{ matrix.tag }}
@@ -192,7 +192,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --profile release-lto --out dist --pgo -i "${{ steps.python.outputs.python-path }}"
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: "true"
       - name: Build free-threaded wheels
@@ -200,7 +200,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --profile release-lto --out dist --pgo -i python3.14t
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: "true"
       - name: Build abi3t wheels
@@ -208,7 +208,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --profile release-lto --out dist --pgo -i "${{ steps.python-abi3t.outputs.python-path }}"
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: "true"
       - name: Upload wheels
@@ -260,7 +260,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --profile release-lto --out dist --pgo -i python3.14
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: "true"
       - name: Build free-threaded wheels
@@ -268,7 +268,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --profile release-lto --out dist --pgo -i python3.14t
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: "true"
       - name: Build abi3t wheels
@@ -276,7 +276,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --profile release-lto --out dist --pgo -i "${{ steps.python-abi3t.outputs.python-path }}"
-          maturin-version: v1.15.0
+          maturin-version: v1.16.0
           rustup-components: llvm-tools
           sccache: "true"
       - name: Upload wheels
