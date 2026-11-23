@@ -183,7 +183,7 @@ jobs:
           python-version: 3.14t
       - name: Setup Python 3.15t
         id: python-abi3t
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.15t
           allow-prereleases: true
@@ -251,7 +251,7 @@ jobs:
           python-version-file: ".python-version"
       - name: Setup Python 3.15t
         id: python-abi3t
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.15t
           allow-prereleases: true
